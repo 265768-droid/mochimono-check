@@ -50,24 +50,40 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // =========================================================================
+        // 【重要】異なる端末間（先生PC ⇄ 児童タブレット等）でリアルタイム同期を行う場合
+        // Firebaseコンソール (https://console.firebase.google.com/) で無料プロジェクトを
+        // 作成し、取得した設定情報（apiKey, projectId等）をここに貼り付けてください。
+        // =========================================================================
+        const DEFAULT_FIREBASE_CONFIG = {
+            apiKey: "demo-key",
+            authDomain: "demo-project.firebaseapp.com",
+            projectId: "demo-project",
+            storageBucket: "demo-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'sch-check-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
-            : {
-                apiKey: "demo-key",
-                authDomain: "demo-project.firebaseapp.com",
-                projectId: "demo-project",
-                storageBucket: "demo-project.appspot.com",
-                messagingSenderId: "123456789",
-                appId: "1:123456789:web:abcdef123456"
-              };
+            : DEFAULT_FIREBASE_CONFIG;
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        let auth, db;
+        const isConfigured = firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'demo-key';
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.warn("Firebase Init notice:", e);
+        }
 
         window.FirebaseBridge = {
+            isConfigured,
             initAuth: async () => {
+                if (!auth) return null;
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -89,6 +105,7 @@
             onSnapshot,
 
             saveMasterData: async (masterObj) => {
+                if (!db) return;
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'master');
                     await setDoc(docRef, {
@@ -101,6 +118,7 @@
             },
 
             listenMasterData: (callback) => {
+                if (!db) return () => {};
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'master');
                 return onSnapshot(docRef, (snapshot) => {
                     if (snapshot.exists()) {
@@ -112,6 +130,7 @@
             },
 
             saveSubmissionDoc: async (docId, subObj) => {
+                if (!db) return;
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'submissions', docId);
                     await setDoc(docRef, subObj, { merge: true });
@@ -127,13 +146,6 @@
             theme: {
                 extend: {
                     colors: {
-                        kidsYellow: '#FFF7D6',
-                        kidsOrange: '#FFBE98',
-                        kidsPink: '#FFD1DC',
-                        kidsBlue: '#D4F0F0',
-                        kidsGreen: '#CCE2CB',
-                        kidsPurple: '#E8DFF5',
-                        brandRed: '#E53E3E',
                         brandGreen: '#2F855A',
                     },
                     fontFamily: {
@@ -320,6 +332,7 @@
 
             const todayKey = getTodayKey();
 
+            // リアルタイム同期の受信リスナー設定
             useEffect(() => {
                 let unsubSubmissions = null;
                 let unsubMaster = null;
@@ -329,6 +342,7 @@
                         const { initAuth, db, appId, collection, onSnapshot, listenMasterData } = window.FirebaseBridge;
                         await initAuth();
 
+                        // A. クラウド上のマスターデータ（持ち物・カテゴリ・名簿等）の同期受領
                         unsubMaster = listenMasterData((data) => {
                             if (!data) return;
                             if (data.categories && data.categories.length > 0) {
@@ -360,20 +374,23 @@
                             }
                         });
 
-                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
-                        unsubSubmissions = onSnapshot(colRef, (snapshot) => {
-                            const newSubmissions = {};
-                            snapshot.forEach((doc) => {
-                                newSubmissions[doc.id] = doc.data();
+                        // B. 全児童の提出・チェック状況の同期受領
+                        if (db) {
+                            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                            unsubSubmissions = onSnapshot(colRef, (snapshot) => {
+                                const newSubmissions = {};
+                                snapshot.forEach((doc) => {
+                                    newSubmissions[doc.id] = doc.data();
+                                });
+                                setSubmissions(prev => {
+                                    const updated = { ...prev, ...newSubmissions };
+                                    window.safeStorage.setItem('sch_chk_submissions', JSON.stringify(updated));
+                                    return updated;
+                                });
+                            }, (err) => {
+                                console.warn("Firestore submissions snapshot notice:", err);
                             });
-                            setSubmissions(prev => {
-                                const updated = { ...prev, ...newSubmissions };
-                                window.safeStorage.setItem('sch_chk_submissions', JSON.stringify(updated));
-                                return updated;
-                            });
-                        }, (err) => {
-                            console.warn("Firestore submissions snapshot notice:", err);
-                        });
+                        }
                     }
                 };
                 setupFirebase();
@@ -384,6 +401,7 @@
                 };
             }, []);
 
+            // マスターデータ更新時のクラウド送信処理
             const persistMasterData = (updatedObj) => {
                 const masterObj = {
                     categories: updatedObj.categories !== undefined ? updatedObj.categories : categories,
@@ -404,6 +422,7 @@
                 }
             };
 
+            // 毎日15:00の自動リセット
             useEffect(() => {
                 const nowCutoff = getResetCutoffTimestamp(new Date());
                 if (lastResetTime < nowCutoff) {
@@ -420,6 +439,7 @@
             const currentSubKey = `${todayKey}_${selectedStudentId}`;
             const currentSubData = submissions[currentSubKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
 
+            // 児童選択時、および他端末からの提出データ更新時に画面のチェック状態を同期
             useEffect(() => {
                 if (!selectedStudentId) return;
                 window.safeStorage.setItem('sch_chk_selected_st', selectedStudentId);
@@ -428,11 +448,12 @@
                     ...it,
                     completed: checkedSet.has(it.id)
                 })));
-            }, [selectedStudentId, currentSubKey]);
+            }, [selectedStudentId, currentSubKey, JSON.stringify(currentSubData.checkedIds)]);
 
             const showNotice = (title, message) => setDialogConfig({ type: 'notice', title, message });
             const showConfirm = (title, message, onConfirm) => setDialogConfig({ type: 'confirm', title, message, onConfirm });
 
+            // 児童のチェック操作
             const toggleItemCheck = (id) => {
                 if (isTeacherMode) return;
                 setItems(prev => {
@@ -442,6 +463,7 @@
                 });
             };
 
+            // チェック状態・提出状態の即時同期
             const saveCurrentCheckState = (updatedItems, isSubmittedStatus, submittedAtTime) => {
                 if (!selectedStudentId) return;
                 const checkedIds = updatedItems.filter(i => i.completed).map(i => i.id);
@@ -465,6 +487,7 @@
                 }
             };
 
+            // 先生モード：マトリクス表セル代理操作
             const toggleMatrixCell = (stId, itemId) => {
                 if (!isTeacherMode) return;
                 const targetSubKey = `${todayKey}_${stId}`;
@@ -857,15 +880,19 @@
                 return submissions[subKey]?.isSubmitted;
             }).length;
 
+            const isFbConfigured = window.FirebaseBridge && window.FirebaseBridge.isConfigured;
+
             return (
                 <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4">
                     
                     {/* ヘッダー */}
                     <header className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-4 mb-4">
                         <div className="flex items-center justify-between">
-                            <h1 className="text-xl sm:text-2xl font-black text-slate-800">
-                                <ruby>今日<rt>きょう</rt></ruby>の <ruby>持<rt>も</rt></ruby>ち<ruby>物<rt>もの</rt></ruby>・<ruby>提<rt>てい</rt>出<rt>しゅつ</rt>物<rt>ぶつ</rt></ruby>
-                            </h1>
+                            <div>
+                                <h1 className="text-xl sm:text-2xl font-black text-slate-800">
+                                    <ruby>今日<rt>きょう</rt></ruby>の <ruby>持<rt>も</rt></ruby>ち<ruby>物<rt>もの</rt></ruby>・<ruby>提<rt>てい</rt>出<rt>しゅつ</rt>物<rt>ぶつ</rt></ruby>
+                                </h1>
+                            </div>
 
                             <div className="flex items-center space-x-2">
                                 {isTeacherMode && (
@@ -931,9 +958,17 @@
                                     <i className="fa-solid fa-user-gear text-rose-600"></i>
                                     <span>先生専用 管理パネル</span>
                                 </div>
-                                <span className="text-xs font-bold text-rose-700 bg-white px-2.5 py-0.5 rounded-full border border-rose-200">
-                                    先生モード中（児童チェック機能ロック中）
-                                </span>
+                                <div className="flex items-center space-x-2">
+                                    {isFbConfigured ? (
+                                        <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                                            ☁️ クラウド同期動作中
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
+                                            ⚠️ ローカル動作中（他端末同期にはFirebase設定が必要です）
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-2">
