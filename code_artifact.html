@@ -1,0 +1,2052 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クラスの持ち物・提出物チェックリスト</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Fonts (M PLUS Rounded 1c) -->
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- SafeStorage ラッパー (Google Sites / iframe 等での Storage アクセス拒否対策) -->
+    <script>
+        window.safeStorage = {
+            _memory: {},
+            getItem: function(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    return this._memory[key] || null;
+                }
+            },
+            setItem: function(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) {
+                    this._memory[key] = value;
+                }
+            },
+            removeItem: function(key) {
+                try {
+                    localStorage.removeItem(key);
+                } catch (e) {
+                    delete this._memory[key];
+                }
+            }
+        };
+    </script>
+
+    <!-- Firebase SDK 11.6.1 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sch-check-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "demo-key",
+                authDomain: "demo-project.firebaseapp.com",
+                projectId: "demo-project",
+                storageBucket: "demo-project.appspot.com",
+                messagingSenderId: "123456789",
+                appId: "1:123456789:web:abcdef123456"
+              };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.FirebaseBridge = {
+            initAuth: async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    return auth.currentUser;
+                } catch (e) {
+                    console.warn("Firebase Auth fallback:", e);
+                    return null;
+                }
+            },
+            db,
+            appId,
+            doc,
+            setDoc,
+            getDoc,
+            collection,
+            onSnapshot,
+
+            // マスターデータ（持ち物・カテゴリ・プリセット・名簿・暗証番号）の送信
+            saveMasterData: async (masterObj) => {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'master');
+                    await setDoc(docRef, {
+                        ...masterObj,
+                        updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                } catch (e) {
+                    console.warn("Firestore save master error:", e);
+                }
+            },
+
+            // マスターデータのリアルタイム監視
+            listenMasterData: (callback) => {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'master');
+                return onSnapshot(docRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        callback(snapshot.data());
+                    }
+                }, (err) => {
+                    console.warn("Firestore master snapshot notice:", err);
+                });
+            },
+
+            // 児童の提出状況保存
+            saveSubmissionDoc: async (docId, subObj) => {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'submissions', docId);
+                    await setDoc(docRef, subObj, { merge: true });
+                } catch (e) {
+                    console.warn("Firestore submission save error:", e);
+                }
+            }
+        };
+    </script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kidsYellow: '#FFF7D6',
+                        kidsOrange: '#FFBE98',
+                        kidsPink: '#FFD1DC',
+                        kidsBlue: '#D4F0F0',
+                        kidsGreen: '#CCE2CB',
+                        kidsPurple: '#E8DFF5',
+                        brandRed: '#E53E3E',
+                        brandGreen: '#2F855A',
+                    },
+                    fontFamily: {
+                        sans: ['"M PLUS Rounded 1c"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #FAF8F5;
+            user-select: none;
+        }
+        ruby rt {
+            font-size: 0.58em;
+            color: #4A5568;
+            font-weight: 700;
+        }
+        .bg-pattern {
+            background-color: #FAF8F5;
+            background-image: radial-gradient(#CBD5E0 1.5px, transparent 1.5px), radial-gradient(#CBD5E0 1.5px, #FAF8F5 1.5px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-pattern text-slate-800 min-h-screen pb-12">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // 初期デフォルトデータ（ローカル・クラウドともに全く保存されていない場合のみ使用）
+        const INITIAL_CATEGORIES = [
+            { id: 'cat-daily', name: '毎日の持ち物', ruby: 'まいにちの もちもの', icon: 'fa-bag-shopping', color: 'bg-amber-100 border-amber-300 text-amber-900', badge: 'bg-amber-500 text-white' },
+            { id: 'cat-textbook', name: '教科書・ノート', ruby: 'きょうかしょ・ノート', icon: 'fa-book-open', color: 'bg-sky-100 border-sky-300 text-sky-900', badge: 'bg-sky-500 text-white' },
+            { id: 'cat-submission', name: '提出物', ruby: 'ていしゅつぶつ', icon: 'fa-file-signature', color: 'bg-rose-100 border-rose-300 text-rose-900', badge: 'bg-rose-500 text-white' },
+            { id: 'cat-special', name: '特別な道具', ruby: 'とくべつな どうぐ', icon: 'fa-star', color: 'bg-emerald-100 border-emerald-300 text-emerald-900', badge: 'bg-emerald-500 text-white' },
+        ];
+
+        const INITIAL_ITEMS = [
+            { id: 'item-1', title: '筆箱', ruby: 'ふでばこ', categoryId: 'cat-daily', tab: 'daily', quantity: '1個', note: '削った鉛筆5本\n消しゴム\n赤鉛筆・定規', completed: false },
+            { id: 'item-2', title: '連絡帳', ruby: 'れんらくちょう', categoryId: 'cat-daily', tab: 'daily', quantity: '1冊', note: '保護者の確認印', completed: false },
+            { id: 'item-3', title: 'タブレット端末', ruby: 'タブレットたんまつ', categoryId: 'cat-daily', tab: 'daily', quantity: '1台', note: '家で充電しておくこと', completed: false },
+            { id: 'item-4', title: '国語の教科書・ノート', ruby: 'こくごのきょうかしょ・ノート', categoryId: 'cat-textbook', tab: 'daily', quantity: '各1', note: '', completed: false },
+            { id: 'item-5', title: '算数の教科書・ノート', ruby: 'さんすうのきょうかしょ・ノート', categoryId: 'cat-textbook', tab: 'daily', quantity: '各1', note: '計算ドリルもあわせて準備', completed: false },
+            { id: 'item-6', title: '宿題プリント', ruby: 'しゅくだいプリント', categoryId: 'cat-submission', tab: 'daily', quantity: '1枚', note: '丸付け・お直し済み', completed: false },
+            { id: 'item-7', title: 'お道具箱', ruby: 'おどうぐばこ', categoryId: 'cat-special', tab: 'keep', quantity: '1個', note: 'ハサミ・のり・色鉛筆が入っているか', completed: false },
+            { id: 'item-8', title: '防災頭巾', ruby: 'ぼうさいずきん', categoryId: 'cat-special', tab: 'keep', quantity: '1個', note: '椅子の背もたれにセット', completed: false },
+        ];
+
+        const INITIAL_ROSTER = [
+            { id: 'st-1', number: 1, name: '青木 たろう', ruby: 'あおき たろう' },
+            { id: 'st-2', number: 2, name: '井上 はなこ', ruby: 'いのうえ はなこ' },
+            { id: 'st-3', number: 3, name: '佐藤 だいき', ruby: 'さとう だいき' },
+            { id: 'st-4', number: 4, name: '鈴木 さくら', ruby: 'すずき さくら' },
+            { id: 'st-5', number: 5, name: '高橋 れん', ruby: 'たかはし れん' },
+        ];
+
+        const INITIAL_PRESET_LIST = [
+            {
+                id: 'preset-mon',
+                name: '月曜日セット',
+                ruby: 'げつようびセット',
+                items: [
+                    { title: '上履き', ruby: 'うわばき', categoryId: 'cat-special', tab: 'daily', quantity: '1足', note: '洗ったきれいなもの' },
+                    { title: '体操服', ruby: 'たいそうふく', categoryId: 'cat-special', tab: 'daily', quantity: '1式', note: '赤白帽子も' },
+                    { title: '給食着', ruby: 'きゅうしょくぎ', categoryId: 'cat-special', tab: 'daily', quantity: '1着', note: '当番の人' },
+                ]
+            }
+        ];
+
+        // 毎日15:00のカットオフ時刻計算
+        const getResetCutoffTimestamp = (dateObj = new Date()) => {
+            const cutoff = new Date(dateObj);
+            cutoff.setHours(15, 0, 0, 0);
+            if (dateObj < cutoff) {
+                cutoff.setDate(cutoff.getDate() - 1);
+            }
+            return cutoff.getTime();
+        };
+
+        const getTodayKey = () => {
+            const now = new Date();
+            const cutoff = new Date(now);
+            cutoff.setHours(15, 0, 0, 0);
+            if (now < cutoff) {
+                cutoff.setDate(cutoff.getDate() - 1);
+            }
+            return `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+        };
+
+        function App() {
+            // SafeStorage より初期値をロード（一度読み込まれたら決してリセットしない）
+            const [categories, setCategories] = useState(() => {
+                const saved = window.safeStorage.getItem('sch_chk_categories');
+                return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
+            });
+
+            const [items, setItems] = useState(() => {
+                const saved = window.safeStorage.getItem('sch_chk_items');
+                return saved ? JSON.parse(saved) : INITIAL_ITEMS;
+            });
+
+            const [presets, setPresets] = useState(() => {
+                const saved = window.safeStorage.getItem('sch_chk_presets');
+                return saved ? JSON.parse(saved) : INITIAL_PRESET_LIST;
+            });
+
+            const [roster, setRoster] = useState(() => {
+                const saved = window.safeStorage.getItem('sch_chk_roster');
+                return saved ? JSON.parse(saved) : INITIAL_ROSTER;
+            });
+
+            const [passcode, setPasscode] = useState(() => {
+                return window.safeStorage.getItem('sch_chk_passcode') || '1234';
+            });
+
+            const [lastResetTime, setLastResetTime] = useState(() => {
+                const saved = window.safeStorage.getItem('sch_chk_last_reset');
+                return saved ? Number(saved) : 0;
+            });
+
+            const [selectedStudentId, setSelectedStudentId] = useState(() => {
+                const saved = window.safeStorage.getItem('sch_chk_selected_st');
+                return saved || (roster[0]?.id || '');
+            });
+
+            const [submissions, setSubmissions] = useState(() => {
+                const saved = window.safeStorage.getItem('sch_chk_submissions');
+                return saved ? JSON.parse(saved) : {};
+            });
+
+            const [activeTab, setActiveTab] = useState('daily');
+            const [isTeacherMode, setIsTeacherMode] = useState(false);
+            const [activeView, setActiveView] = useState('list'); // 'list' | 'matrix'
+            const [isBigDisplay, setIsBigDisplay] = useState(false);
+            const [activeCategoryFilter, setActiveCategoryFilter] = useState('ALL');
+            const [isFbReady, setIsFbReady] = useState(false);
+
+            // モーダル管理ステート
+            const [showPasscodeModal, setShowPasscodeModal] = useState(false);
+            const [passcodeInput, setPasscodeInput] = useState('');
+            const [passcodeError, setPasscodeError] = useState('');
+
+            const [showChangePassModal, setShowChangePassModal] = useState(false);
+            const [oldPassInput, setOldPassInput] = useState('');
+            const [newPassInput, setNewPassInput] = useState('');
+            const [confirmPassInput, setConfirmPassInput] = useState('');
+            const [changePassError, setChangePassError] = useState('');
+
+            const [showItemModal, setShowItemModal] = useState(false);
+            const [editingItem, setEditingItem] = useState(null);
+            const [itemFormData, setItemFormData] = useState({
+                title: '', ruby: '', categoryId: 'cat-daily', tab: 'daily', quantity: '1個', note: ''
+            });
+
+            const [showCategoryModal, setShowCategoryModal] = useState(false);
+            const [editingCategory, setEditingCategory] = useState(null);
+            const [catFormData, setCatFormData] = useState({
+                name: '', ruby: '', icon: 'fa-bag-shopping', colorIndex: 0
+            });
+
+            const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+            const [presetNameInput, setPresetNameInput] = useState('');
+            const [presetRubyInput, setPresetRubyInput] = useState('');
+
+            const [showPresetManagerModal, setShowPresetManagerModal] = useState(false);
+            const [showRosterModal, setShowRosterModal] = useState(false);
+            const [editingStudent, setEditingStudent] = useState(null);
+            const [studentFormData, setStudentFormData] = useState({ number: 1, name: '', ruby: '' });
+
+            const [dialogConfig, setDialogConfig] = useState(null);
+
+            const COLOR_THEMES = [
+                { color: 'bg-amber-100 border-amber-300 text-amber-900', badge: 'bg-amber-500 text-white', label: 'アンバー' },
+                { color: 'bg-sky-100 border-sky-300 text-sky-900', badge: 'bg-sky-500 text-white', label: 'スカイブルー' },
+                { color: 'bg-rose-100 border-rose-300 text-rose-900', badge: 'bg-rose-500 text-white', label: 'ローズ' },
+                { color: 'bg-emerald-100 border-emerald-300 text-emerald-900', badge: 'bg-emerald-500 text-white', label: 'エメラルド' },
+                { color: 'bg-purple-100 border-purple-300 text-purple-900', badge: 'bg-purple-500 text-white', label: 'パープル' },
+                { color: 'bg-slate-100 border-slate-300 text-slate-900', badge: 'bg-slate-600 text-white', label: 'グレー' },
+            ];
+
+            const ICON_OPTIONS = [
+                'fa-bag-shopping', 'fa-book-open', 'fa-file-signature', 'fa-star', 
+                'fa-palette', 'fa-music', 'fa-volleyball', 'fa-flask', 'fa-pencil', 'fa-laptop'
+            ];
+
+            const todayKey = getTodayKey();
+
+            // Firebase リアルタイム同期の初期化
+            useEffect(() => {
+                let unsubSubmissions = null;
+                let unsubMaster = null;
+
+                const setupFirebase = async () => {
+                    if (window.FirebaseBridge) {
+                        const { initAuth, db, appId, collection, onSnapshot, listenMasterData } = window.FirebaseBridge;
+                        await initAuth();
+                        setIsFbReady(true);
+
+                        // A. クラウド上のマスターデータの受領
+                        unsubMaster = listenMasterData((data) => {
+                            if (!data) return;
+                            if (data.categories && data.categories.length > 0) {
+                                setCategories(data.categories);
+                                window.safeStorage.setItem('sch_chk_categories', JSON.stringify(data.categories));
+                            }
+                            if (data.items && data.items.length > 0) {
+                                setItems(prev => {
+                                    const completedMap = new Map(prev.map(i => [i.id, i.completed]));
+                                    const merged = data.items.map(it => ({
+                                        ...it,
+                                        completed: completedMap.has(it.id) ? completedMap.get(it.id) : false
+                                    }));
+                                    window.safeStorage.setItem('sch_chk_items', JSON.stringify(merged));
+                                    return merged;
+                                });
+                            }
+                            if (data.presets) {
+                                setPresets(data.presets);
+                                window.safeStorage.setItem('sch_chk_presets', JSON.stringify(data.presets));
+                            }
+                            if (data.roster && data.roster.length > 0) {
+                                setRoster(data.roster);
+                                window.safeStorage.setItem('sch_chk_roster', JSON.stringify(data.roster));
+                            }
+                            if (data.passcode) {
+                                setPasscode(data.passcode);
+                                window.safeStorage.setItem('sch_chk_passcode', data.passcode);
+                            }
+                        });
+
+                        // B. 全児童のリアルタイム提出状況の受領
+                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                        unsubSubmissions = onSnapshot(colRef, (snapshot) => {
+                            const newSubmissions = {};
+                            snapshot.forEach((doc) => {
+                                newSubmissions[doc.id] = doc.data();
+                            });
+                            setSubmissions(prev => {
+                                const updated = { ...prev, ...newSubmissions };
+                                window.safeStorage.setItem('sch_chk_submissions', JSON.stringify(updated));
+                                return updated;
+                            });
+                        }, (err) => {
+                            console.warn("Firestore submissions snapshot notice:", err);
+                        });
+                    }
+                };
+                setupFirebase();
+
+                return () => {
+                    if (unsubSubmissions) unsubSubmissions();
+                    if (unsubMaster) unsubMaster();
+                };
+            }, []);
+
+            // マスターデータ変更時の即時永続化保存関数
+            const persistMasterData = (updatedObj) => {
+                const masterObj = {
+                    categories: updatedObj.categories !== undefined ? updatedObj.categories : categories,
+                    items: updatedObj.items !== undefined ? updatedObj.items : items,
+                    presets: updatedObj.presets !== undefined ? updatedObj.presets : presets,
+                    roster: updatedObj.roster !== undefined ? updatedObj.roster : roster,
+                    passcode: updatedObj.passcode !== undefined ? updatedObj.passcode : passcode,
+                };
+
+                // SafeStorage へ即時保存
+                window.safeStorage.setItem('sch_chk_categories', JSON.stringify(masterObj.categories));
+                window.safeStorage.setItem('sch_chk_items', JSON.stringify(masterObj.items));
+                window.safeStorage.setItem('sch_chk_presets', JSON.stringify(masterObj.presets));
+                window.safeStorage.setItem('sch_chk_roster', JSON.stringify(masterObj.roster));
+                window.safeStorage.setItem('sch_chk_passcode', masterObj.passcode);
+
+                // クラウド (Firestore) へ保存
+                if (window.FirebaseBridge) {
+                    window.FirebaseBridge.saveMasterData(masterObj);
+                }
+            };
+
+            // 毎日15:00の自動リセット判定
+            useEffect(() => {
+                const nowCutoff = getResetCutoffTimestamp(new Date());
+                if (lastResetTime < nowCutoff) {
+                    setItems(prev => {
+                        const resetItems = prev.map(item => item.tab === 'daily' ? { ...item, completed: false } : item);
+                        window.safeStorage.setItem('sch_chk_items', JSON.stringify(resetItems));
+                        return resetItems;
+                    });
+                    setLastResetTime(nowCutoff);
+                    window.safeStorage.setItem('sch_chk_last_reset', String(nowCutoff));
+                }
+            }, [lastResetTime]);
+
+            // 選択中の児童情報
+            const currentSubKey = `${todayKey}_${selectedStudentId}`;
+            const currentSubData = submissions[currentSubKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
+
+            // 児童選択の切り替え時のチェック状態同期
+            useEffect(() => {
+                if (!selectedStudentId) return;
+                window.safeStorage.setItem('sch_chk_selected_st', selectedStudentId);
+                const checkedSet = new Set(currentSubData.checkedIds || []);
+                setItems(prev => prev.map(it => ({
+                    ...it,
+                    completed: checkedSet.has(it.id)
+                })));
+            }, [selectedStudentId, currentSubKey]);
+
+            // カスタムダイアログ表示
+            const showNotice = (title, message) => setDialogConfig({ type: 'notice', title, message });
+            const showConfirm = (title, message, onConfirm) => setDialogConfig({ type: 'confirm', title, message, onConfirm });
+
+            // 児童のチェック操作
+            const toggleItemCheck = (id) => {
+                if (isTeacherMode) return; // 先生モード中は誤タップ防止ロック
+                setItems(prev => {
+                    const nextItems = prev.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
+                    saveCurrentCheckState(nextItems, currentSubData.isSubmitted, currentSubData.submittedAt);
+                    return nextItems;
+                });
+            };
+
+            // チェック＆提出データの同期処理
+            const saveCurrentCheckState = (updatedItems, isSubmittedStatus, submittedAtTime) => {
+                if (!selectedStudentId) return;
+                const checkedIds = updatedItems.filter(i => i.completed).map(i => i.id);
+                const subObj = {
+                    studentId: selectedStudentId,
+                    dateKey: todayKey,
+                    checkedIds,
+                    isSubmitted: isSubmittedStatus,
+                    submittedAt: submittedAtTime,
+                    updatedAt: new Date().toISOString()
+                };
+
+                setSubmissions(prev => {
+                    const updated = { ...prev, [currentSubKey]: subObj };
+                    window.safeStorage.setItem('sch_chk_submissions', JSON.stringify(updated));
+                    return updated;
+                });
+
+                if (window.FirebaseBridge) {
+                    window.FirebaseBridge.saveSubmissionDoc(currentSubKey, subObj);
+                }
+            };
+
+            // 先生のマトリクス表代理チェック
+            const toggleMatrixCell = (stId, itemId) => {
+                if (!isTeacherMode) return;
+                const targetSubKey = `${todayKey}_${stId}`;
+                const targetSub = submissions[targetSubKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
+                const checkedSet = new Set(targetSub.checkedIds || []);
+
+                if (checkedSet.has(itemId)) {
+                    checkedSet.delete(itemId);
+                } else {
+                    checkedSet.add(itemId);
+                }
+
+                const updatedSub = {
+                    studentId: stId,
+                    dateKey: todayKey,
+                    checkedIds: Array.from(checkedSet),
+                    isSubmitted: targetSub.isSubmitted,
+                    submittedAt: targetSub.submittedAt,
+                    updatedAt: new Date().toISOString()
+                };
+
+                setSubmissions(prev => {
+                    const next = { ...prev, [targetSubKey]: updatedSub };
+                    window.safeStorage.setItem('sch_chk_submissions', JSON.stringify(next));
+                    return next;
+                });
+
+                if (window.FirebaseBridge) {
+                    window.FirebaseBridge.saveSubmissionDoc(targetSubKey, updatedSub);
+                }
+
+                if (stId === selectedStudentId) {
+                    setItems(prev => prev.map(it => ({
+                        ...it,
+                        completed: checkedSet.has(it.id)
+                    })));
+                }
+            };
+
+            const toggleMatrixSubmission = (stId) => {
+                if (!isTeacherMode) return;
+                const targetSubKey = `${todayKey}_${stId}`;
+                const targetSub = submissions[targetSubKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
+                const now = new Date();
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+                const updatedSub = {
+                    ...targetSub,
+                    studentId: stId,
+                    dateKey: todayKey,
+                    isSubmitted: !targetSub.isSubmitted,
+                    submittedAt: !targetSub.isSubmitted ? timeStr : '',
+                    updatedAt: new Date().toISOString()
+                };
+
+                setSubmissions(prev => {
+                    const next = { ...prev, [targetSubKey]: updatedSub };
+                    window.safeStorage.setItem('sch_chk_submissions', JSON.stringify(next));
+                    return next;
+                });
+
+                if (window.FirebaseBridge) {
+                    window.FirebaseBridge.saveSubmissionDoc(targetSubKey, updatedSub);
+                }
+            };
+
+            // 児童「先生に提出する」
+            const handleSubmitChecklist = () => {
+                if (!selectedStudentId) {
+                    showNotice('おなまえの選択', 'じぶんの おなまえを えらんでから ていしゅつしてください。');
+                    return;
+                }
+                const now = new Date();
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                saveCurrentCheckState(items, true, timeStr);
+                showNotice('ていしゅつ かんりょう！', `せんせいに ていしゅつしました！（${timeStr}）`);
+            };
+
+            // 暗証番号変更
+            const handleChangePasscodeSubmit = (e) => {
+                e.preventDefault();
+                if (oldPassInput !== passcode) {
+                    setChangePassError('現在の暗証番号が違います。');
+                    return;
+                }
+                if (newPassInput.length < 4) {
+                    setChangePassError('新しい暗証番号は4桁以上にしてください。');
+                    return;
+                }
+                if (newPassInput !== confirmPassInput) {
+                    setChangePassError('新しい暗証番号（確認）が一致しません。');
+                    return;
+                }
+                setPasscode(newPassInput);
+                persistMasterData({ passcode: newPassInput });
+                setShowChangePassModal(false);
+                showNotice('暗証番号変更', '暗証番号を正常に変更・保存しました。');
+            };
+
+            // 持ち物・カテゴリ並べ替え
+            const moveItemOrder = (itemId, direction) => {
+                const idx = items.findIndex(i => i.id === itemId);
+                if (idx < 0) return;
+                const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+                if (targetIdx < 0 || targetIdx >= items.length) return;
+                const updated = [...items];
+                const [moved] = updated.splice(idx, 1);
+                updated.splice(targetIdx, 0, moved);
+                setItems(updated);
+                persistMasterData({ items: updated });
+            };
+
+            const moveCategoryOrder = (catId, direction) => {
+                const idx = categories.findIndex(c => c.id === catId);
+                if (idx < 0) return;
+                const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+                if (targetIdx < 0 || targetIdx >= categories.length) return;
+                const updated = [...categories];
+                const [moved] = updated.splice(idx, 1);
+                updated.splice(targetIdx, 0, moved);
+                setCategories(updated);
+                persistMasterData({ categories: updated });
+            };
+
+            // 持ち物の追加・編集・削除
+            const openAddItemModal = (catId = null) => {
+                setEditingItem(null);
+                setItemFormData({
+                    title: '',
+                    ruby: '',
+                    categoryId: catId || categories[0]?.id || 'cat-daily',
+                    tab: activeTab,
+                    quantity: '1個',
+                    note: ''
+                });
+                setShowItemModal(true);
+            };
+
+            const openEditItemModal = (item) => {
+                setEditingItem(item);
+                setItemFormData({
+                    title: item.title,
+                    ruby: item.ruby || '',
+                    categoryId: item.categoryId,
+                    tab: item.tab,
+                    quantity: item.quantity || '',
+                    note: item.note || ''
+                });
+                setShowItemModal(true);
+            };
+
+            const handleItemFormSubmit = (e) => {
+                e.preventDefault();
+                if (!itemFormData.title.trim()) return;
+
+                let nextItems;
+                if (editingItem) {
+                    nextItems = items.map(i => i.id === editingItem.id ? {
+                        ...i,
+                        title: itemFormData.title.trim(),
+                        ruby: itemFormData.ruby.trim(),
+                        categoryId: itemFormData.categoryId,
+                        tab: itemFormData.tab,
+                        quantity: itemFormData.quantity.trim(),
+                        note: itemFormData.note.trim()
+                    } : i);
+                } else {
+                    const newItem = {
+                        id: 'item-' + Date.now(),
+                        title: itemFormData.title.trim(),
+                        ruby: itemFormData.ruby.trim(),
+                        categoryId: itemFormData.categoryId,
+                        tab: itemFormData.tab,
+                        quantity: itemFormData.quantity.trim() || '1個',
+                        note: itemFormData.note.trim(),
+                        completed: false
+                    };
+                    nextItems = [...items, newItem];
+                }
+                setItems(nextItems);
+                persistMasterData({ items: nextItems });
+                setShowItemModal(false);
+            };
+
+            const deleteItem = (itemId) => {
+                if (!isTeacherMode) return;
+                showConfirm('削除の確認', 'この持ち物をリストから削除してもよろしいですか？', () => {
+                    const nextItems = items.filter(i => i.id !== itemId);
+                    setItems(nextItems);
+                    persistMasterData({ items: nextItems });
+                });
+            };
+
+            // カテゴリの追加・編集・削除
+            const openAddCategoryModal = () => {
+                setEditingCategory(null);
+                setCatFormData({ name: '', ruby: '', icon: 'fa-bag-shopping', colorIndex: 0 });
+                setShowCategoryModal(true);
+            };
+
+            const openEditCategoryModal = (cat) => {
+                setEditingCategory(cat);
+                const colorIdx = COLOR_THEMES.findIndex(t => t.color === cat.color);
+                setCatFormData({
+                    name: cat.name,
+                    ruby: cat.ruby || '',
+                    icon: cat.icon,
+                    colorIndex: colorIdx >= 0 ? colorIdx : 0
+                });
+                setShowCategoryModal(true);
+            };
+
+            const handleCategoryFormSubmit = (e) => {
+                e.preventDefault();
+                if (!catFormData.name.trim()) return;
+                const theme = COLOR_THEMES[catFormData.colorIndex];
+
+                let nextCats;
+                if (editingCategory) {
+                    nextCats = categories.map(c => c.id === editingCategory.id ? {
+                        ...c,
+                        name: catFormData.name.trim(),
+                        ruby: catFormData.ruby.trim(),
+                        icon: catFormData.icon,
+                        color: theme.color,
+                        badge: theme.badge
+                    } : c);
+                } else {
+                    const newCat = {
+                        id: 'cat-' + Date.now(),
+                        name: catFormData.name.trim(),
+                        ruby: catFormData.ruby.trim(),
+                        icon: catFormData.icon,
+                        color: theme.color,
+                        badge: theme.badge
+                    };
+                    nextCats = [...categories, newCat];
+                }
+                setCategories(nextCats);
+                persistMasterData({ categories: nextCats });
+                setShowCategoryModal(false);
+            };
+
+            const deleteCategory = (catId) => {
+                if (!isTeacherMode) return;
+                const catItems = items.filter(i => i.categoryId === catId);
+                const msg = catItems.length > 0 
+                    ? `このカテゴリに含まれる ${catItems.length} 件の持ち物も一緒に削除されます。本当に削除しますか？`
+                    : 'このカテゴリを削除してもよろしいですか？';
+
+                showConfirm('カテゴリ削除の確認', msg, () => {
+                    const nextCats = categories.filter(c => c.id !== catId);
+                    const nextItems = items.filter(i => i.categoryId !== catId);
+                    setCategories(nextCats);
+                    setItems(nextItems);
+                    persistMasterData({ categories: nextCats, items: nextItems });
+                });
+            };
+
+            // プリセット適用（上書き適用）
+            const applyPreset = (presetId) => {
+                const preset = presets.find(p => p.id === presetId);
+                if (!preset) return;
+                showConfirm(
+                    'プリセット一括上書きの確認',
+                    `「${preset.name}」の内容で現在の「まいにちの持ち物」を書き換えますか？`,
+                    () => {
+                        const newItems = preset.items.map((it, idx) => ({
+                            id: 'preset-' + Date.now() + '-' + idx,
+                            title: it.title,
+                            ruby: it.ruby || '',
+                            categoryId: it.categoryId || categories[0]?.id,
+                            tab: 'daily',
+                            quantity: it.quantity || '1個',
+                            note: it.note || '',
+                            completed: false
+                        }));
+                        const nextItems = [
+                            ...items.filter(i => i.tab !== 'daily'),
+                            ...newItems
+                        ];
+                        setItems(nextItems);
+                        persistMasterData({ items: nextItems });
+                    }
+                );
+            };
+
+            const handleSaveCurrentAsPreset = (e) => {
+                e.preventDefault();
+                if (!presetNameInput.trim()) return;
+
+                const dailyItems = items.filter(i => i.tab === 'daily');
+                const newPreset = {
+                    id: 'preset-' + Date.now(),
+                    name: presetNameInput.trim(),
+                    ruby: presetRubyInput.trim(),
+                    items: dailyItems.map(i => ({
+                        title: i.title,
+                        ruby: i.ruby,
+                        categoryId: i.categoryId,
+                        quantity: i.quantity,
+                        note: i.note
+                    }))
+                };
+                const nextPresets = [...presets, newPreset];
+                setPresets(nextPresets);
+                persistMasterData({ presets: nextPresets });
+                setPresetNameInput('');
+                setPresetRubyInput('');
+                setShowSavePresetModal(false);
+                showNotice('保存完了', `「${newPreset.name}」をプリセットに保存・全端末へ同期しました。`);
+            };
+
+            const deletePreset = (presetId) => {
+                showConfirm('削除の確認', 'このプリセットを削除してもよろしいですか？', () => {
+                    const nextPresets = presets.filter(p => p.id !== presetId);
+                    setPresets(nextPresets);
+                    persistMasterData({ presets: nextPresets });
+                });
+            };
+
+            // 生徒名簿の管理
+            const openAddStudentModal = () => {
+                setEditingStudent(null);
+                setStudentFormData({ number: roster.length + 1, name: '', ruby: '' });
+                setShowRosterModal(true);
+            };
+
+            const openEditStudentModal = (st) => {
+                setEditingStudent(st);
+                setStudentFormData({ number: st.number, name: st.name, ruby: st.ruby || '' });
+                setShowRosterModal(true);
+            };
+
+            const handleStudentFormSubmit = (e) => {
+                e.preventDefault();
+                if (!studentFormData.name.trim()) return;
+
+                let nextRoster;
+                if (editingStudent) {
+                    nextRoster = roster.map(s => s.id === editingStudent.id ? {
+                        ...s,
+                        number: Number(studentFormData.number),
+                        name: studentFormData.name.trim(),
+                        ruby: studentFormData.ruby.trim()
+                    } : s).sort((a,b) => a.number - b.number);
+                } else {
+                    const newSt = {
+                        id: 'st-' + Date.now(),
+                        number: Number(studentFormData.number),
+                        name: studentFormData.name.trim(),
+                        ruby: studentFormData.ruby.trim()
+                    };
+                    nextRoster = [...roster, newSt].sort((a,b) => a.number - b.number);
+                }
+                setRoster(nextRoster);
+                persistMasterData({ roster: nextRoster });
+                setShowRosterModal(false);
+            };
+
+            const deleteStudent = (stId) => {
+                showConfirm('児童の削除確認', '名簿から削除してもよろしいですか？', () => {
+                    const nextRoster = roster.filter(s => s.id !== stId);
+                    setRoster(nextRoster);
+                    persistMasterData({ roster: nextRoster });
+                });
+            };
+
+            // 先生モードの切り替え
+            const handleTeacherToggle = () => {
+                if (isTeacherMode) {
+                    setIsTeacherMode(false);
+                } else {
+                    setPasscodeInput('');
+                    setPasscodeError('');
+                    setShowPasscodeModal(true);
+                }
+            };
+
+            const verifyPasscode = (e) => {
+                e.preventDefault();
+                if (passcodeInput === passcode) {
+                    setIsTeacherMode(true);
+                    setShowPasscodeModal(false);
+                } else {
+                    setPasscodeError('暗証番号が正しくありません。');
+                }
+            };
+
+            // ルビ描画用コンポーネント
+            const renderRubyText = (text, ruby) => {
+                if (!ruby) return text;
+                return (
+                    <ruby>
+                        {text} <rt className="text-[0.58em] text-slate-500 font-bold">{ruby}</rt>
+                    </ruby>
+                );
+            };
+
+            const activeTabItems = items.filter(i => i.tab === activeTab);
+
+            // 全児童の提出数計算（児童用画面・マトリクス画面で共通利用）
+            const submittedCount = roster.filter(st => {
+                const subKey = `${todayKey}_${st.id}`;
+                return submissions[subKey]?.isSubmitted;
+            }).length;
+
+            return (
+                <div className={`max-w-6xl mx-auto px-3 sm:px-6 py-4 ${isBigDisplay ? 'text-lg' : ''}`}>
+                    
+                    {/* ヘッダー */}
+                    <header className="bg-white rounded-3xl shadow-sm border-4 border-amber-200 p-4 sm:p-6 mb-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            
+                            <div className="flex items-center space-x-3">
+                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-400 text-amber-900 flex items-center justify-center text-2xl sm:text-3xl font-black shadow-inner flex-shrink-0">
+                                    🎒
+                                </div>
+                                <div>
+                                    <div className="flex items-center space-x-2 mb-1 flex-wrap">
+                                        <span className="px-3 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs sm:text-sm font-black border border-amber-300">
+                                            クラスの<ruby>持ち物<rt>もちもの</rt></ruby>
+                                        </span>
+                                        {isFbReady && (
+                                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">
+                                                ☁️ クラウド自動保存・同期中
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-wide">
+                                        <ruby>今日<rt>きょう</rt></ruby>の <ruby>持<rt>も</rt></ruby>ち<ruby>物<rt>もの</rt></ruby>・<ruby>提<rt>てい</rt>出<rt>しゅつ</rt>物<rt>ぶつ</rt></ruby>
+                                    </h1>
+                                </div>
+                            </div>
+
+                            {/* 操作ボタン */}
+                            <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+                                <button
+                                    onClick={() => setActiveView(activeView === 'list' ? 'matrix' : 'list')}
+                                    className={`px-3.5 py-2 text-xs sm:text-sm font-black rounded-2xl border-2 flex items-center space-x-1.5 ${
+                                        activeView === 'matrix'
+                                            ? 'bg-indigo-600 text-white border-indigo-700 shadow'
+                                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-table-cells"></i>
+                                    <span>{activeView === 'matrix' ? 'チェックリスト表示' : '👥 全員の確認表'}</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setIsBigDisplay(!isBigDisplay)}
+                                    className={`px-3.5 py-2 text-xs sm:text-sm font-black rounded-2xl border-2 flex items-center space-x-1.5 ${
+                                        isBigDisplay 
+                                            ? 'bg-purple-600 text-white border-purple-700 shadow' 
+                                            : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-expand"></i>
+                                    <span>{isBigDisplay ? '通常文字' : '拡大文字'}</span>
+                                </button>
+
+                                <button
+                                    onClick={handleTeacherToggle}
+                                    className={`px-3.5 py-2 text-xs sm:text-sm font-black rounded-2xl border-2 flex items-center space-x-1.5 ${
+                                        isTeacherMode
+                                            ? 'bg-rose-500 text-white border-rose-600 shadow'
+                                            : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                                    }`}
+                                >
+                                    <i className={`fa-solid ${isTeacherMode ? 'fa-lock-open' : 'fa-lock'}`}></i>
+                                    <span>{isTeacherMode ? '先生モード中' : '先生用管理'}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 児童名簿選択バー ＆ 提出ボタン */}
+                        {activeView === 'list' && (
+                            <div className="mt-4 pt-4 border-t-2 border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-amber-50 p-3.5 rounded-2xl border border-amber-200">
+                                <div className="flex items-center space-x-2 flex-wrap">
+                                    <span className="text-xs sm:text-sm font-black text-amber-900">
+                                        👤 じぶんの おなまえ：
+                                    </span>
+                                    <select
+                                        value={selectedStudentId}
+                                        onChange={e => setSelectedStudentId(e.target.value)}
+                                        className="px-3 py-1.5 bg-white border-2 border-amber-300 rounded-xl font-black text-xs sm:text-sm text-slate-800 shadow-sm focus:outline-none"
+                                    >
+                                        {roster.map(st => (
+                                            <option key={st.id} value={st.id}>
+                                                {st.number}番: {st.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center space-x-2 self-end md:self-auto">
+                                    {currentSubData.isSubmitted ? (
+                                        <div className="flex items-center space-x-2">
+                                            <span className="px-3 py-1.5 bg-emerald-600 text-white font-black text-xs sm:text-sm rounded-xl shadow-sm flex items-center space-x-1">
+                                                <i className="fa-solid fa-circle-check"></i>
+                                                <span>ていしゅつずみ ({currentSubData.submittedAt})</span>
+                                            </span>
+                                            <button
+                                                onClick={handleSubmitChecklist}
+                                                className="px-3 py-1.5 bg-white text-slate-700 border border-slate-300 font-bold text-xs rounded-xl hover:bg-slate-50"
+                                            >
+                                                再ていしゅつ
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleSubmitChecklist}
+                                            className="px-4 py-2 bg-brandGreen hover:bg-emerald-700 text-white font-black text-xs sm:text-sm rounded-xl shadow border-2 border-emerald-800 flex items-center space-x-1.5"
+                                        >
+                                            <i className="fa-solid fa-paper-plane"></i>
+                                            <span>せんせいに ていしゅつする</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </header>
+
+                    {/* タブ切り替え（「まいにちの持ち物」 vs 「学校に置いておくもの」） */}
+                    {activeView === 'list' && (
+                        <div className="flex space-x-2 mb-4">
+                            <button
+                                onClick={() => setActiveTab('daily')}
+                                className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs sm:text-base border-3 flex items-center justify-center space-x-2 shadow-sm ${
+                                    activeTab === 'daily'
+                                        ? 'bg-amber-400 text-amber-950 border-amber-500'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <i className="fa-solid fa-calendar-day"></i>
+                                <span>🎒 まいにちの持ち物（毎日15時自動リセット）</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('keep')}
+                                className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs sm:text-base border-3 flex items-center justify-center space-x-2 shadow-sm ${
+                                    activeTab === 'keep'
+                                        ? 'bg-sky-400 text-sky-950 border-sky-500'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <i className="fa-solid fa-box-archive"></i>
+                                <span>🏫 学校に置いておくもの（自動リセットなし）</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 先生用 管理パネル */}
+                    {isTeacherMode && (
+                        <div className="bg-rose-50 rounded-3xl border-4 border-rose-200 p-4 sm:p-5 mb-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                <div className="flex items-center space-x-2 text-rose-900 font-black text-base sm:text-lg">
+                                    <i className="fa-solid fa-user-gear text-rose-600"></i>
+                                    <span>
+                                        <ruby>先生<rt>せんせい</rt></ruby><ruby>専用<rt>せんよう</rt></ruby> <ruby>追加<rt>ついか</rt></ruby>・<ruby>管理<rt>かんり</rt></ruby>パネル
+                                    </span>
+                                </div>
+                                <span className="text-xs font-bold text-rose-700 bg-white px-3 py-1 rounded-full border border-rose-200 shadow-sm">
+                                    🔒 先生モード中：誤タップ防止のため児童チェック機能はロック中
+                                </span>
+                            </div>
+                            
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    onClick={() => openAddItemModal()}
+                                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                    <span>新しい持ち物を追加</span>
+                                </button>
+
+                                <button
+                                    onClick={openAddCategoryModal}
+                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                >
+                                    <i className="fa-solid fa-folder-plus"></i>
+                                    <span>新しいカテゴリを追加</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setShowSavePresetModal(true)}
+                                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                >
+                                    <i className="fa-solid fa-bookmark"></i>
+                                    <span>現在のリストをプリセットに保存</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setShowPresetManagerModal(true)}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                >
+                                    <i className="fa-solid fa-folder-gear"></i>
+                                    <span>曜日別プリセット管理 ({presets.length})</span>
+                                </button>
+
+                                <button
+                                    onClick={openAddStudentModal}
+                                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                >
+                                    <i className="fa-solid fa-users-gear"></i>
+                                    <span>児童名簿の編集</span>
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setOldPassInput('');
+                                        setNewPassInput('');
+                                        setConfirmPassInput('');
+                                        setChangePassError('');
+                                        setShowChangePassModal(true);
+                                    }}
+                                    className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                >
+                                    <i className="fa-solid fa-key"></i>
+                                    <span>暗証番号の変更</span>
+                                </button>
+                            </div>
+
+                            {/* プリセット一括上書きボタン */}
+                            <div className="mt-3 pt-3 border-t border-rose-200 flex items-center flex-wrap gap-2">
+                                <span className="text-xs font-black text-rose-900">曜日別プリセット一括上書き適用:</span>
+                                {presets.map(p => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => applyPreset(p.id)}
+                                        className="px-3 py-1 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 font-bold text-xs rounded-xl shadow-sm"
+                                    >
+                                        ➔ {renderRubyText(p.name, p.ruby)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ビュー1: チェックリスト表示 */}
+                    {activeView === 'list' && (
+                        <div>
+                            {/* カテゴリフィルター */}
+                            <div className="flex items-center space-x-2 overflow-x-auto pb-3 mb-4 no-scrollbar">
+                                <button
+                                    onClick={() => setActiveCategoryFilter('ALL')}
+                                    className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm border-2 whitespace-nowrap shadow-sm ${
+                                        activeCategoryFilter === 'ALL'
+                                            ? 'bg-slate-800 text-white border-slate-800'
+                                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    🌟 すべて ({activeTabItems.length})
+                                </button>
+                                {categories.map(cat => {
+                                    const count = activeTabItems.filter(i => i.categoryId === cat.id).length;
+                                    return (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => setActiveCategoryFilter(cat.id)}
+                                            className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm border-2 whitespace-nowrap shadow-sm flex items-center space-x-2 ${
+                                                activeCategoryFilter === cat.id
+                                                    ? 'bg-slate-800 text-white border-slate-800'
+                                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <i className={`fa-solid ${cat.icon}`}></i>
+                                            <span>{renderRubyText(cat.name, cat.ruby)}</span>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeCategoryFilter === cat.id ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                                {count}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* カテゴリ毎のカード */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {categories.map((cat) => {
+                                    if (activeCategoryFilter !== 'ALL' && activeCategoryFilter !== cat.id) return null;
+
+                                    const catItems = activeTabItems.filter(i => i.categoryId === cat.id);
+                                    if (catItems.length === 0 && activeCategoryFilter === 'ALL' && !isTeacherMode) return null;
+
+                                    const doneCount = catItems.filter(i => i.completed).length;
+
+                                    return (
+                                        <div key={cat.id} className={`rounded-3xl border-4 p-4 sm:p-5 shadow-sm bg-white ${cat.color.split(' ')[1]}`}>
+                                            
+                                            {/* カテゴリヘッダー */}
+                                            <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-100">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg ${cat.badge}`}>
+                                                        <i className={`fa-solid ${cat.icon}`}></i>
+                                                    </div>
+                                                    <div>
+                                                        <h2 className="font-black text-base sm:text-lg text-slate-800">
+                                                            {renderRubyText(cat.name, cat.ruby)}
+                                                        </h2>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center space-x-1">
+                                                    <span className="text-xs font-black bg-slate-100 px-2.5 py-1 rounded-full text-slate-700 mr-1">
+                                                        {doneCount} / {catItems.length}
+                                                    </span>
+
+                                                    {/* 先生専用操作ボタン */}
+                                                    {isTeacherMode && (
+                                                        <div className="flex items-center space-x-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                                                            <button
+                                                                onClick={() => moveCategoryOrder(cat.id, 'up')}
+                                                                className="px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded"
+                                                                title="上へ"
+                                                            >
+                                                                ▲
+                                                            </button>
+                                                            <button
+                                                                onClick={() => moveCategoryOrder(cat.id, 'down')}
+                                                                className="px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded"
+                                                                title="下へ"
+                                                            >
+                                                                ▼
+                                                            </button>
+                                                            <button
+                                                                onClick={() => openAddItemModal(cat.id)}
+                                                                className="px-2 py-0.5 text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded"
+                                                            >
+                                                                + 持ち物追加
+                                                            </button>
+                                                            <button
+                                                                onClick={() => openEditCategoryModal(cat)}
+                                                                className="px-1.5 py-0.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded"
+                                                            >
+                                                                <i className="fa-solid fa-pen"></i>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteCategory(cat.id)}
+                                                                className="px-1.5 py-0.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded"
+                                                            >
+                                                                <i className="fa-solid fa-trash-can"></i>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* アイテムカード群 */}
+                                            {catItems.length === 0 ? (
+                                                <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-2xl">
+                                                    <p className="text-xs text-slate-400 font-bold mb-2">
+                                                        持ち物がありません
+                                                    </p>
+                                                    {isTeacherMode && (
+                                                        <button
+                                                            onClick={() => openAddItemModal(cat.id)}
+                                                            className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-xl"
+                                                        >
+                                                            + 持ち物を追加
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {catItems.map((item) => (
+                                                        <div
+                                                            key={item.id}
+                                                            onClick={() => toggleItemCheck(item.id)}
+                                                            className={`p-3.5 sm:p-4 rounded-2xl border-2 flex items-center justify-between ${
+                                                                isTeacherMode ? 'cursor-default' : 'cursor-pointer hover:border-amber-400'
+                                                            } ${
+                                                                item.completed
+                                                                    ? 'bg-emerald-50 border-emerald-300'
+                                                                    : 'bg-white border-slate-200 shadow-sm'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                                                {/* チェックボックス */}
+                                                                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border-2 flex items-center justify-center text-lg flex-shrink-0 ${
+                                                                    item.completed
+                                                                        ? 'bg-brandGreen border-brandGreen text-white'
+                                                                        : 'border-slate-300 bg-slate-50 text-transparent'
+                                                                }`}>
+                                                                    <i className="fa-solid fa-check"></i>
+                                                                </div>
+
+                                                                {/* タイトル＆注記 */}
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center space-x-2 flex-wrap">
+                                                                        <span className={`font-black text-sm sm:text-base ${
+                                                                            item.completed ? 'line-through text-slate-400' : 'text-slate-800'
+                                                                        }`}>
+                                                                            {renderRubyText(item.title, item.ruby)}
+                                                                        </span>
+                                                                        {item.quantity && (
+                                                                            <span className={`px-2 py-0.5 text-xs font-extrabold rounded-lg ${
+                                                                                item.completed ? 'bg-slate-100 text-slate-400' : 'bg-amber-100 text-amber-900'
+                                                                            }`}>
+                                                                                {item.quantity}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    {item.note && (
+                                                                        <p className={`text-xs font-bold mt-1 whitespace-pre-wrap ${
+                                                                            item.completed ? 'text-slate-300' : 'text-slate-500'
+                                                                        }`}>
+                                                                            💡 {item.note}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* 先生専用ボタン */}
+                                                            {isTeacherMode && (
+                                                                <div className="flex items-center space-x-1 pl-2 border-l border-slate-200 ml-2" onClick={e => e.stopPropagation()}>
+                                                                    <button
+                                                                        onClick={() => moveItemOrder(item.id, 'up')}
+                                                                        className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded text-xs font-bold"
+                                                                    >
+                                                                        ▲
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => moveItemOrder(item.id, 'down')}
+                                                                        className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded text-xs font-bold"
+                                                                    >
+                                                                        ▼
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => openEditItemModal(item)}
+                                                                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded text-xs font-bold"
+                                                                    >
+                                                                        <i className="fa-solid fa-pen"></i>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => deleteItem(item.id)}
+                                                                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded text-xs font-bold"
+                                                                    >
+                                                                        <i className="fa-solid fa-trash-can"></i>
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ビュー2: 全員の提出確認画面（児童用サマリー ⇄ 先生用詳細マトリクス） */}
+                    {activeView === 'matrix' && (
+                        <div className="bg-white rounded-3xl border-4 border-indigo-200 p-4 sm:p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b-2 border-slate-100">
+                                <div>
+                                    <h2 className="text-lg sm:text-xl font-black text-indigo-900 flex items-center space-x-2">
+                                        <i className="fa-solid fa-table-list text-indigo-600"></i>
+                                        <span>
+                                            {isTeacherMode ? '【先生モード】全員の詳細持ち物確認表' : 'クラス全員のていしゅつじょうきょう'}
+                                        </span>
+                                    </h2>
+                                    <p className="text-xs text-slate-500 font-bold mt-0.5">
+                                        {isTeacherMode 
+                                            ? '児童の持ち物チェック詳細一覧（タップで先生による代理チェック・提出更新が可能です）'
+                                            : `ていしゅつ済み: ${submittedCount}名 / 全体: ${roster.length}名 (${Math.round((submittedCount / (roster.length || 1)) * 100)}%)`}
+                                    </p>
+                                </div>
+                                {isTeacherMode && (
+                                    <button
+                                        onClick={openAddStudentModal}
+                                        className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow self-start sm:self-auto"
+                                    >
+                                        + 児童を名簿に追加
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* 児童用概要表示（プライバシー保護：持ち物内訳非表示） */}
+                            {!isTeacherMode ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {roster.map(st => {
+                                        const subKey = `${todayKey}_${st.id}`;
+                                        const subData = submissions[subKey];
+                                        const isSubmitted = subData?.isSubmitted;
+                                        return (
+                                            <div key={st.id} className={`p-3 rounded-2xl border-2 text-center ${
+                                                isSubmitted ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'
+                                            }`}>
+                                                <div className="text-xs text-slate-500 font-bold">{st.number}番</div>
+                                                <div className="font-black text-slate-800 text-sm my-1">{renderRubyText(st.name, st.ruby)}</div>
+                                                {isSubmitted ? (
+                                                    <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-full text-[10px] font-black inline-block">
+                                                        ✅ ていしゅつ済み
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 bg-slate-200 text-slate-500 rounded-full text-[10px] font-bold inline-block">
+                                                        未ていしゅつ
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                /* 先生モード専用 詳細マトリクス表示 */
+                                <div className="overflow-x-auto border-2 border-slate-200 rounded-2xl">
+                                    <table className="w-full text-left border-collapse min-w-[700px]">
+                                        <thead>
+                                            <tr className="bg-indigo-50 border-b-2 border-indigo-200 text-indigo-900 text-xs font-black">
+                                                <th className="p-3 w-14 text-center border-r border-indigo-200">番号</th>
+                                                <th className="p-3 w-36 border-r border-indigo-200">お名前</th>
+                                                <th className="p-3 w-28 text-center border-r border-indigo-200">提出状況</th>
+                                                {items.map(item => (
+                                                    <th key={item.id} className="p-3 text-center border-r border-indigo-200 min-w-[90px]">
+                                                        <div className="font-black text-xs text-slate-800">{item.title}</div>
+                                                        <div className="text-[10px] text-slate-500 font-normal">{item.quantity}</div>
+                                                    </th>
+                                                ))}
+                                                <th className="p-3 w-20 text-center">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 text-sm font-bold">
+                                            {roster.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={items.length + 4} className="p-8 text-center text-slate-400 font-bold text-xs">
+                                                        児童名簿が登録されていません。
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                roster.map(st => {
+                                                    const subKey = `${todayKey}_${st.id}`;
+                                                    const subData = submissions[subKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
+                                                    const checkedSet = new Set(subData.checkedIds || []);
+
+                                                    return (
+                                                        <tr key={st.id} className="hover:bg-slate-50">
+                                                            <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-600">
+                                                                {st.number}
+                                                            </td>
+                                                            <td className="p-3 border-r border-slate-200">
+                                                                {renderRubyText(st.name, st.ruby)}
+                                                            </td>
+                                                            <td 
+                                                                onClick={() => toggleMatrixSubmission(st.id)}
+                                                                className="p-3 text-center border-r border-slate-200 cursor-pointer hover:bg-amber-50"
+                                                            >
+                                                                {subData.isSubmitted ? (
+                                                                    <span className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-xs font-black inline-block">
+                                                                        提出済み<br/><span className="text-[10px] font-normal">{subData.submittedAt}</span>
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold inline-block">
+                                                                        未提出
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            {items.map(item => {
+                                                                const isChecked = checkedSet.has(item.id);
+                                                                return (
+                                                                    <td
+                                                                        key={item.id}
+                                                                        onClick={() => toggleMatrixCell(st.id, item.id)}
+                                                                        className="p-3 text-center border-r border-slate-200 cursor-pointer hover:bg-amber-50"
+                                                                    >
+                                                                        <span className={`inline-block w-7 h-7 rounded-lg text-sm font-black leading-7 ${
+                                                                            isChecked
+                                                                                ? 'bg-emerald-500 text-white'
+                                                                                : 'bg-slate-100 text-slate-300'
+                                                                        }`}>
+                                                                            {isChecked ? '✓' : '－'}
+                                                                        </span>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td className="p-3 text-center space-x-1">
+                                                                <button
+                                                                    onClick={() => openEditStudentModal(st)}
+                                                                    className="text-xs text-indigo-600 hover:bg-indigo-50 p-1 rounded font-bold"
+                                                                >
+                                                                    編集
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteStudent(st.id)}
+                                                                    className="text-xs text-rose-600 hover:bg-rose-50 p-1 rounded font-bold"
+                                                                >
+                                                                    削除
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+
+                    {/* -------------------- モーダル群 -------------------- */}
+
+                    {/* 1. 先生モード パスコード入力モーダル */}
+                    {showPasscodeModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
+                            <div className="bg-white rounded-3xl p-6 border-4 border-rose-300 w-full max-w-sm text-center shadow-xl">
+                                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+                                    <i className="fa-solid fa-lock"></i>
+                                </div>
+                                <h3 className="font-black text-slate-800 text-lg mb-1">先生専用モード</h3>
+                                <p className="text-xs text-slate-500 mb-4 font-bold">
+                                    暗証番号を入力してください<br/>（初期設定: <span className="font-mono bg-slate-100 px-1 rounded text-rose-600">1234</span>）
+                                </p>
+                                <form onSubmit={verifyPasscode} className="space-y-4">
+                                    <input
+                                        type="password"
+                                        maxLength="6"
+                                        placeholder="••••"
+                                        value={passcodeInput}
+                                        onChange={e => setPasscodeInput(e.target.value)}
+                                        className="w-full text-center text-2xl font-mono tracking-widest py-3 border-2 border-slate-300 rounded-2xl focus:outline-none focus:border-rose-500 bg-slate-50"
+                                        autoFocus
+                                    />
+                                    {passcodeError && (
+                                        <p className="text-xs font-bold text-rose-500">{passcodeError}</p>
+                                    )}
+                                    <div className="flex space-x-2 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPasscodeModal(false)}
+                                            className="flex-1 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-2xl text-xs"
+                                        >
+                                            キャンセル
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2.5 font-bold text-white bg-rose-600 rounded-2xl text-xs shadow"
+                                        >
+                                            解除
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 2. 暗証番号変更モーダル */}
+                    {showChangePassModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
+                            <div className="bg-white rounded-3xl p-6 border-4 border-slate-600 w-full max-w-sm shadow-xl">
+                                <h3 className="font-black text-slate-800 text-lg mb-3 flex items-center space-x-2">
+                                    <i className="fa-solid fa-key text-slate-700"></i>
+                                    <span>暗証番号の変更</span>
+                                </h3>
+                                <form onSubmit={handleChangePasscodeSubmit} className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">現在の暗証番号</label>
+                                        <input
+                                            type="password"
+                                            required
+                                            value={oldPassInput}
+                                            onChange={e => setOldPassInput(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm border-2 border-slate-300 rounded-xl font-mono"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">新しい暗証番号（4桁以上）</label>
+                                        <input
+                                            type="password"
+                                            required
+                                            value={newPassInput}
+                                            onChange={e => setNewPassInput(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm border-2 border-slate-300 rounded-xl font-mono"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">新しい暗証番号（確認）</label>
+                                        <input
+                                            type="password"
+                                            required
+                                            value={confirmPassInput}
+                                            onChange={e => setConfirmPassInput(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm border-2 border-slate-300 rounded-xl font-mono"
+                                        />
+                                    </div>
+
+                                    {changePassError && (
+                                        <p className="text-xs font-bold text-rose-500">{changePassError}</p>
+                                    )}
+
+                                    <div className="flex space-x-2 pt-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowChangePassModal(false)}
+                                            className="flex-1 py-2 font-bold text-slate-600 bg-slate-100 rounded-xl text-xs"
+                                        >
+                                            キャンセル
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2 font-bold text-white bg-slate-800 rounded-xl text-xs shadow"
+                                        >
+                                            変更を保存
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 3. 持ち物 アイテム追加・編集モーダル */}
+                    {showItemModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
+                            <div className="bg-white rounded-3xl border-4 border-amber-300 w-full max-w-md overflow-hidden shadow-xl">
+                                <div className="px-6 py-4 bg-amber-100 border-b-2 border-amber-200 flex items-center justify-between">
+                                    <h3 className="font-black text-amber-900 text-base">
+                                        {editingItem ? '持ち物の修正' : '新しい持ち物の追加'}
+                                    </h3>
+                                    <button onClick={() => setShowItemModal(false)} className="text-amber-800 font-black">
+                                        ✕
+                                    </button>
+                                </div>
+                                <form onSubmit={handleItemFormSubmit} className="p-6 space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">
+                                            持ち物の名前（漢字表記） <span className="text-rose-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="例: 国語の教科書"
+                                            value={itemFormData.title}
+                                            onChange={e => setItemFormData({ ...itemFormData, title: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">
+                                            ふりがな（児童用ルビ）
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="例: こくごのきょうかしょ"
+                                            value={itemFormData.ruby}
+                                            onChange={e => setItemFormData({ ...itemFormData, ruby: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-black text-slate-700 mb-1">カテゴリ</label>
+                                            <select
+                                                value={itemFormData.categoryId}
+                                                onChange={e => setItemFormData({ ...itemFormData, categoryId: e.target.value })}
+                                                className="w-full px-3 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                            >
+                                                {categories.map(c => (
+                                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-black text-slate-700 mb-1">タブ分類</label>
+                                            <select
+                                                value={itemFormData.tab}
+                                                onChange={e => setItemFormData({ ...itemFormData, tab: e.target.value })}
+                                                className="w-full px-3 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                            >
+                                                <option value="daily">まいにちの持ち物</option>
+                                                <option value="keep">学校に置いておくもの</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">数量</label>
+                                        <input
+                                            type="text"
+                                            placeholder="例: 1個, 1冊"
+                                            value={itemFormData.quantity}
+                                            onChange={e => setItemFormData({ ...itemFormData, quantity: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">
+                                            注意事項メモ（改行可能）
+                                        </label>
+                                        <textarea
+                                            rows="3"
+                                            placeholder="例: 赤白帽子もわすれずに&#10;充電しておくこと"
+                                            value={itemFormData.note}
+                                            onChange={e => setItemFormData({ ...itemFormData, note: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+
+                                    <div className="pt-2 flex justify-end space-x-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowItemModal(false)}
+                                            className="px-4 py-2 font-bold text-slate-600 bg-slate-100 rounded-xl text-xs"
+                                        >
+                                            キャンセル
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-5 py-2 font-bold text-white bg-amber-500 rounded-xl text-xs shadow"
+                                        >
+                                            {editingItem ? '保存する' : '追加する'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 4. カテゴリ追加・編集モーダル */}
+                    {showCategoryModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
+                            <div className="bg-white rounded-3xl border-4 border-purple-300 w-full max-w-md overflow-hidden shadow-xl">
+                                <div className="px-6 py-4 bg-purple-100 border-b-2 border-purple-200 flex items-center justify-between">
+                                    <h3 className="font-black text-purple-900 text-base">
+                                        {editingCategory ? 'カテゴリの修正' : '新しいカテゴリの追加'}
+                                    </h3>
+                                    <button onClick={() => setShowCategoryModal(false)} className="text-purple-900 font-black">
+                                        ✕
+                                    </button>
+                                </div>
+                                <form onSubmit={handleCategoryFormSubmit} className="p-6 space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">
+                                            カテゴリ名 <span className="text-rose-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="例: 理科・社会"
+                                            value={catFormData.name}
+                                            onChange={e => setCatFormData({ ...catFormData, name: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">ふりがな</label>
+                                        <input
+                                            type="text"
+                                            placeholder="例: りか・しゃかい"
+                                            value={catFormData.ruby}
+                                            onChange={e => setCatFormData({ ...catFormData, ruby: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">アイコン</label>
+                                        <div className="grid grid-cols-5 gap-2">
+                                            {ICON_OPTIONS.map(icon => (
+                                                <button
+                                                    key={icon}
+                                                    type="button"
+                                                    onClick={() => setCatFormData({ ...catFormData, icon })}
+                                                    className={`h-10 rounded-xl border-2 text-base flex items-center justify-center ${
+                                                        catFormData.icon === icon
+                                                            ? 'bg-purple-600 border-purple-600 text-white'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                                                    }`}
+                                                >
+                                                    <i className={`fa-solid ${icon}`}></i>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">カラーテーマ</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {COLOR_THEMES.map((theme, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => setCatFormData({ ...catFormData, colorIndex: idx })}
+                                                    className={`p-2 rounded-xl border-2 text-xs font-bold text-center ${
+                                                        catFormData.colorIndex === idx
+                                                            ? 'border-purple-600 ring-2 ring-purple-300'
+                                                            : 'border-slate-200'
+                                                    } ${theme.color.split(' ')[0]}`}
+                                                >
+                                                    {theme.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2 flex justify-end space-x-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCategoryModal(false)}
+                                            className="px-4 py-2 font-bold text-slate-600 bg-slate-100 rounded-xl text-xs"
+                                        >
+                                            キャンセル
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-5 py-2 font-bold text-white bg-purple-600 rounded-xl text-xs shadow"
+                                        >
+                                            {editingCategory ? '保存する' : '追加する'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 5. プリセット保存モーダル */}
+                    {showSavePresetModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
+                            <div className="bg-white rounded-3xl p-6 border-4 border-amber-300 w-full max-w-md shadow-xl">
+                                <h3 className="font-black text-amber-900 text-lg mb-2">
+                                    現在の「まいにちの持ち物」をプリセット保存
+                                </h3>
+                                <p className="text-xs text-slate-500 font-bold mb-4">
+                                    現在登録されている持ち物（{items.filter(i => i.tab === 'daily').length}件）をテンプレートとして保存します。
+                                </p>
+                                <form onSubmit={handleSaveCurrentAsPreset} className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">
+                                            プリセット名 <span className="text-rose-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="例: 水曜日セット（習字道具あり）"
+                                            value={presetNameInput}
+                                            onChange={e => setPresetNameInput(e.target.value)}
+                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">ふりがな</label>
+                                        <input
+                                            type="text"
+                                            placeholder="例: すいようびセット"
+                                            value={presetRubyInput}
+                                            onChange={e => setPresetRubyInput(e.target.value)}
+                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div className="pt-2 flex justify-end space-x-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowSavePresetModal(false)}
+                                            className="px-4 py-2 font-bold text-slate-600 bg-slate-100 rounded-xl text-xs"
+                                        >
+                                            キャンセル
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-5 py-2 font-bold text-white bg-amber-500 rounded-xl text-xs shadow"
+                                        >
+                                            保存する
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 6. プリセット管理モーダル */}
+                    {showPresetManagerModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
+                            <div className="bg-white rounded-3xl border-4 border-indigo-400 w-full max-w-lg overflow-hidden shadow-xl flex flex-col max-h-[85vh]">
+                                <div className="px-6 py-4 bg-indigo-100 border-b-2 border-indigo-200 flex items-center justify-between">
+                                    <h3 className="font-black text-indigo-900 text-base">
+                                        曜日別・行事用 プリセットの管理
+                                    </h3>
+                                    <button onClick={() => setShowPresetManagerModal(false)} className="text-indigo-900 font-black">
+                                        ✕
+                                    </button>
+                                </div>
+                                <div className="p-6 overflow-y-auto space-y-3 flex-1">
+                                    {presets.length === 0 ? (
+                                        <p className="text-xs text-slate-400 font-bold text-center py-6">
+                                            保存されたプリセットはありません
+                                        </p>
+                                    ) : (
+                                        presets.map(p => (
+                                            <div key={p.id} className="p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl flex items-center justify-between">
+                                                <div>
+                                                    <h4 className="font-black text-slate-800 text-sm">
+                                                        {renderRubyText(p.name, p.ruby)}
+                                                    </h4>
+                                                    <p className="text-xs text-slate-500 font-bold mt-1">
+                                                        アイテム: {p.items.length}件 ({p.items.map(i => i.title).slice(0, 3).join(', ')}{p.items.length > 3 ? '...' : ''})
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            applyPreset(p.id);
+                                                            setShowPresetManagerModal(false);
+                                                        }}
+                                                        className="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow"
+                                                    >
+                                                        一括上書き適用
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deletePreset(p.id)}
+                                                        className="px-3 py-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 font-bold text-xs rounded-xl"
+                                                    >
+                                                        削除
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="p-4 bg-slate-100 border-t border-slate-200 flex justify-between items-center">
+                                    <button
+                                        onClick={() => {
+                                            setShowPresetManagerModal(false);
+                                            setShowSavePresetModal(true);
+                                        }}
+                                        className="text-xs font-bold text-indigo-700 underline"
+                                    >
+                                        + 今の「まいにちの持ち物」をプリセット追加
+                                    </button>
+                                    <button
+                                        onClick={() => setShowPresetManagerModal(false)}
+                                        className="px-5 py-2 bg-slate-800 text-white font-bold rounded-xl text-xs"
+                                    >
+                                        閉じる
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 7. 児童名簿モーダル */}
+                    {showRosterModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
+                            <div className="bg-white rounded-3xl border-4 border-teal-300 w-full max-w-sm overflow-hidden shadow-xl">
+                                <div className="px-6 py-4 bg-teal-100 border-b-2 border-teal-200 flex items-center justify-between">
+                                    <h3 className="font-black text-teal-900 text-base">
+                                        {editingStudent ? '児童情報の修正' : '児童の追加'}
+                                    </h3>
+                                    <button onClick={() => setShowRosterModal(false)} className="text-teal-900 font-black">
+                                        ✕
+                                    </button>
+                                </div>
+                                <form onSubmit={handleStudentFormSubmit} className="p-6 space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">出席番号</label>
+                                        <input
+                                            type="number"
+                                            required
+                                            min="1"
+                                            value={studentFormData.number}
+                                            onChange={e => setStudentFormData({ ...studentFormData, number: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">児童の氏名 <span className="text-rose-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="例: 山田 たろう"
+                                            value={studentFormData.name}
+                                            onChange={e => setStudentFormData({ ...studentFormData, name: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-700 mb-1">ふりがな</label>
+                                        <input
+                                            type="text"
+                                            placeholder="例: やまだ たろう"
+                                            value={studentFormData.ruby}
+                                            onChange={e => setStudentFormData({ ...studentFormData, ruby: e.target.value })}
+                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                        />
+                                    </div>
+
+                                    <div className="pt-3 flex justify-end space-x-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowRosterModal(false)}
+                                            className="px-4 py-2 font-bold text-slate-600 bg-slate-100 rounded-xl text-xs"
+                                        >
+                                            キャンセル
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-5 py-2 font-bold text-white bg-teal-600 rounded-xl text-xs shadow"
+                                        >
+                                            {editingStudent ? '保存' : '追加'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 8. カスタム通知・確認ダイアログ */}
+                    {dialogConfig && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
+                            <div className="bg-white rounded-3xl p-6 border-4 border-slate-800 w-full max-w-sm text-center shadow-2xl">
+                                <h3 className="font-black text-slate-800 text-base mb-2">
+                                    {dialogConfig.title}
+                                </h3>
+                                <p className="text-xs font-bold text-slate-600 mb-6 whitespace-pre-wrap">
+                                    {dialogConfig.message}
+                                </p>
+                                <div className="flex justify-center space-x-2">
+                                    {dialogConfig.type === 'confirm' ? (
+                                        <>
+                                            <button
+                                                onClick={() => setDialogConfig(null)}
+                                                className="px-5 py-2 font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs"
+                                            >
+                                                いいえ
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (dialogConfig.onConfirm) dialogConfig.onConfirm();
+                                                    setDialogConfig(null);
+                                                }}
+                                                className="px-5 py-2 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl text-xs shadow"
+                                            >
+                                                はい
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => setDialogConfig(null)}
+                                            className="px-6 py-2 font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl text-xs shadow"
+                                        >
+                                            OK
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
