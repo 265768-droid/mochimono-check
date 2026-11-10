@@ -88,7 +88,6 @@
             collection,
             onSnapshot,
 
-            // マスターデータ（持ち物・カテゴリ・プリセット・名簿・暗証番号）の送信
             saveMasterData: async (masterObj) => {
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'master');
@@ -101,7 +100,6 @@
                 }
             },
 
-            // マスターデータのリアルタイム監視
             listenMasterData: (callback) => {
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'master');
                 return onSnapshot(docRef, (snapshot) => {
@@ -113,7 +111,6 @@
                 });
             },
 
-            // 児童の提出状況保存
             saveSubmissionDoc: async (docId, subObj) => {
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'submissions', docId);
@@ -163,22 +160,14 @@
             background-size: 40px 40px;
             background-position: 0 0, 20px 20px;
         }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
     </style>
 </head>
 <body class="bg-pattern text-slate-800 min-h-screen pb-12">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
 
-        // 初期デフォルトデータ（ローカル・クラウドともに全く保存されていない場合のみ使用）
         const INITIAL_CATEGORIES = [
             { id: 'cat-daily', name: '毎日の持ち物', ruby: 'まいにちの もちもの', icon: 'fa-bag-shopping', color: 'bg-amber-100 border-amber-300 text-amber-900', badge: 'bg-amber-500 text-white' },
             { id: 'cat-textbook', name: '教科書・ノート', ruby: 'きょうかしょ・ノート', icon: 'fa-book-open', color: 'bg-sky-100 border-sky-300 text-sky-900', badge: 'bg-sky-500 text-white' },
@@ -187,14 +176,14 @@
         ];
 
         const INITIAL_ITEMS = [
-            { id: 'item-1', title: '筆箱', ruby: 'ふでばこ', categoryId: 'cat-daily', tab: 'daily', quantity: '1個', note: '削った鉛筆5本\n消しゴム\n赤鉛筆・定規', completed: false },
-            { id: 'item-2', title: '連絡帳', ruby: 'れんらくちょう', categoryId: 'cat-daily', tab: 'daily', quantity: '1冊', note: '保護者の確認印', completed: false },
-            { id: 'item-3', title: 'タブレット端末', ruby: 'タブレットたんまつ', categoryId: 'cat-daily', tab: 'daily', quantity: '1台', note: '家で充電しておくこと', completed: false },
-            { id: 'item-4', title: '国語の教科書・ノート', ruby: 'こくごのきょうかしょ・ノート', categoryId: 'cat-textbook', tab: 'daily', quantity: '各1', note: '', completed: false },
-            { id: 'item-5', title: '算数の教科書・ノート', ruby: 'さんすうのきょうかしょ・ノート', categoryId: 'cat-textbook', tab: 'daily', quantity: '各1', note: '計算ドリルもあわせて準備', completed: false },
-            { id: 'item-6', title: '宿題プリント', ruby: 'しゅくだいプリント', categoryId: 'cat-submission', tab: 'daily', quantity: '1枚', note: '丸付け・お直し済み', completed: false },
-            { id: 'item-7', title: 'お道具箱', ruby: 'おどうぐばこ', categoryId: 'cat-special', tab: 'keep', quantity: '1個', note: 'ハサミ・のり・色鉛筆が入っているか', completed: false },
-            { id: 'item-8', title: '防災頭巾', ruby: 'ぼうさいずきん', categoryId: 'cat-special', tab: 'keep', quantity: '1個', note: '椅子の背もたれにセット', completed: false },
+            { id: 'item-1', title: '筆箱', ruby: 'ふでばこ', categoryId: 'cat-daily', tab: 'daily', note: '削った鉛筆5本\n消しゴム\n赤鉛筆・定規', completed: false },
+            { id: 'item-2', title: '連絡帳', ruby: 'れんらくちょう', categoryId: 'cat-daily', tab: 'daily', note: '保護者の確認印', completed: false },
+            { id: 'item-3', title: 'タブレット端末', ruby: 'タブレットたんまつ', categoryId: 'cat-daily', tab: 'daily', note: '家で充電しておくこと', completed: false },
+            { id: 'item-4', title: '国語の教科書・ノート', ruby: 'こくごのきょうかしょ・ノート', categoryId: 'cat-textbook', tab: 'daily', note: '', completed: false },
+            { id: 'item-5', title: '算数の教科書・ノート', ruby: 'さんすうのきょうかしょ・ノート', categoryId: 'cat-textbook', tab: 'daily', note: '計算ドリルもあわせて準備', completed: false },
+            { id: 'item-6', title: '宿題プリント', ruby: 'しゅくだいプリント', categoryId: 'cat-submission', tab: 'daily', note: '丸付け・お直し済み', completed: false },
+            { id: 'item-7', title: 'お道具箱', ruby: 'おどうぐばこ', categoryId: 'cat-special', tab: 'keep', note: 'ハサミ・のり・色鉛筆が入っているか', completed: false },
+            { id: 'item-8', title: '防災頭巾', ruby: 'ぼうさいずきん', categoryId: 'cat-special', tab: 'keep', note: '椅子の背もたれにセット', completed: false },
         ];
 
         const INITIAL_ROSTER = [
@@ -211,14 +200,13 @@
                 name: '月曜日セット',
                 ruby: 'げつようびセット',
                 items: [
-                    { title: '上履き', ruby: 'うわばき', categoryId: 'cat-special', tab: 'daily', quantity: '1足', note: '洗ったきれいなもの' },
-                    { title: '体操服', ruby: 'たいそうふく', categoryId: 'cat-special', tab: 'daily', quantity: '1式', note: '赤白帽子も' },
-                    { title: '給食着', ruby: 'きゅうしょくぎ', categoryId: 'cat-special', tab: 'daily', quantity: '1着', note: '当番の人' },
+                    { title: '上履き', ruby: 'うわばき', categoryId: 'cat-special', tab: 'daily', note: '洗ったきれいなもの' },
+                    { title: '体操服', ruby: 'たいそうふく', categoryId: 'cat-special', tab: 'daily', note: '赤白帽子も' },
+                    { title: '給食着', ruby: 'きゅうしょくぎ', categoryId: 'cat-special', tab: 'daily', note: '当番の人' },
                 ]
             }
         ];
 
-        // 毎日15:00のカットオフ時刻計算
         const getResetCutoffTimestamp = (dateObj = new Date()) => {
             const cutoff = new Date(dateObj);
             cutoff.setHours(15, 0, 0, 0);
@@ -239,7 +227,6 @@
         };
 
         function App() {
-            // SafeStorage より初期値をロード（一度読み込まれたら決してリセットしない）
             const [categories, setCategories] = useState(() => {
                 const saved = window.safeStorage.getItem('sch_chk_categories');
                 return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
@@ -281,10 +268,7 @@
 
             const [activeTab, setActiveTab] = useState('daily');
             const [isTeacherMode, setIsTeacherMode] = useState(false);
-            const [activeView, setActiveView] = useState('list'); // 'list' | 'matrix'
-            const [isBigDisplay, setIsBigDisplay] = useState(false);
-            const [activeCategoryFilter, setActiveCategoryFilter] = useState('ALL');
-            const [isFbReady, setIsFbReady] = useState(false);
+            const [activeView, setActiveView] = useState('list');
 
             // モーダル管理ステート
             const [showPasscodeModal, setShowPasscodeModal] = useState(false);
@@ -300,7 +284,7 @@
             const [showItemModal, setShowItemModal] = useState(false);
             const [editingItem, setEditingItem] = useState(null);
             const [itemFormData, setItemFormData] = useState({
-                title: '', ruby: '', categoryId: 'cat-daily', tab: 'daily', quantity: '1個', note: ''
+                title: '', ruby: '', categoryId: 'cat-daily', tab: 'daily', note: ''
             });
 
             const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -336,7 +320,6 @@
 
             const todayKey = getTodayKey();
 
-            // Firebase リアルタイム同期の初期化
             useEffect(() => {
                 let unsubSubmissions = null;
                 let unsubMaster = null;
@@ -345,9 +328,7 @@
                     if (window.FirebaseBridge) {
                         const { initAuth, db, appId, collection, onSnapshot, listenMasterData } = window.FirebaseBridge;
                         await initAuth();
-                        setIsFbReady(true);
 
-                        // A. クラウド上のマスターデータの受領
                         unsubMaster = listenMasterData((data) => {
                             if (!data) return;
                             if (data.categories && data.categories.length > 0) {
@@ -379,7 +360,6 @@
                             }
                         });
 
-                        // B. 全児童のリアルタイム提出状況の受領
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
                         unsubSubmissions = onSnapshot(colRef, (snapshot) => {
                             const newSubmissions = {};
@@ -404,7 +384,6 @@
                 };
             }, []);
 
-            // マスターデータ変更時の即時永続化保存関数
             const persistMasterData = (updatedObj) => {
                 const masterObj = {
                     categories: updatedObj.categories !== undefined ? updatedObj.categories : categories,
@@ -414,20 +393,17 @@
                     passcode: updatedObj.passcode !== undefined ? updatedObj.passcode : passcode,
                 };
 
-                // SafeStorage へ即時保存
                 window.safeStorage.setItem('sch_chk_categories', JSON.stringify(masterObj.categories));
                 window.safeStorage.setItem('sch_chk_items', JSON.stringify(masterObj.items));
                 window.safeStorage.setItem('sch_chk_presets', JSON.stringify(masterObj.presets));
                 window.safeStorage.setItem('sch_chk_roster', JSON.stringify(masterObj.roster));
                 window.safeStorage.setItem('sch_chk_passcode', masterObj.passcode);
 
-                // クラウド (Firestore) へ保存
                 if (window.FirebaseBridge) {
                     window.FirebaseBridge.saveMasterData(masterObj);
                 }
             };
 
-            // 毎日15:00の自動リセット判定
             useEffect(() => {
                 const nowCutoff = getResetCutoffTimestamp(new Date());
                 if (lastResetTime < nowCutoff) {
@@ -441,11 +417,9 @@
                 }
             }, [lastResetTime]);
 
-            // 選択中の児童情報
             const currentSubKey = `${todayKey}_${selectedStudentId}`;
             const currentSubData = submissions[currentSubKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
 
-            // 児童選択の切り替え時のチェック状態同期
             useEffect(() => {
                 if (!selectedStudentId) return;
                 window.safeStorage.setItem('sch_chk_selected_st', selectedStudentId);
@@ -456,13 +430,11 @@
                 })));
             }, [selectedStudentId, currentSubKey]);
 
-            // カスタムダイアログ表示
             const showNotice = (title, message) => setDialogConfig({ type: 'notice', title, message });
             const showConfirm = (title, message, onConfirm) => setDialogConfig({ type: 'confirm', title, message, onConfirm });
 
-            // 児童のチェック操作
             const toggleItemCheck = (id) => {
-                if (isTeacherMode) return; // 先生モード中は誤タップ防止ロック
+                if (isTeacherMode) return;
                 setItems(prev => {
                     const nextItems = prev.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
                     saveCurrentCheckState(nextItems, currentSubData.isSubmitted, currentSubData.submittedAt);
@@ -470,7 +442,6 @@
                 });
             };
 
-            // チェック＆提出データの同期処理
             const saveCurrentCheckState = (updatedItems, isSubmittedStatus, submittedAtTime) => {
                 if (!selectedStudentId) return;
                 const checkedIds = updatedItems.filter(i => i.completed).map(i => i.id);
@@ -494,7 +465,6 @@
                 }
             };
 
-            // 先生のマトリクス表代理チェック
             const toggleMatrixCell = (stId, itemId) => {
                 if (!isTeacherMode) return;
                 const targetSubKey = `${todayKey}_${stId}`;
@@ -561,7 +531,6 @@
                 }
             };
 
-            // 児童「先生に提出する」
             const handleSubmitChecklist = () => {
                 if (!selectedStudentId) {
                     showNotice('おなまえの選択', 'じぶんの おなまえを えらんでから ていしゅつしてください。');
@@ -570,10 +539,9 @@
                 const now = new Date();
                 const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
                 saveCurrentCheckState(items, true, timeStr);
-                showNotice('ていしゅつ かんりょう！', `せんせいに ていしゅつしました！（${timeStr}）`);
+                showNotice('ていしゅつ かんりょう', `せんせいに ていしゅつしました。（${timeStr}）`);
             };
 
-            // 暗証番号変更
             const handleChangePasscodeSubmit = (e) => {
                 e.preventDefault();
                 if (oldPassInput !== passcode) {
@@ -594,7 +562,6 @@
                 showNotice('暗証番号変更', '暗証番号を正常に変更・保存しました。');
             };
 
-            // 持ち物・カテゴリ並べ替え
             const moveItemOrder = (itemId, direction) => {
                 const idx = items.findIndex(i => i.id === itemId);
                 if (idx < 0) return;
@@ -619,7 +586,6 @@
                 persistMasterData({ categories: updated });
             };
 
-            // 持ち物の追加・編集・削除
             const openAddItemModal = (catId = null) => {
                 setEditingItem(null);
                 setItemFormData({
@@ -627,7 +593,6 @@
                     ruby: '',
                     categoryId: catId || categories[0]?.id || 'cat-daily',
                     tab: activeTab,
-                    quantity: '1個',
                     note: ''
                 });
                 setShowItemModal(true);
@@ -640,7 +605,6 @@
                     ruby: item.ruby || '',
                     categoryId: item.categoryId,
                     tab: item.tab,
-                    quantity: item.quantity || '',
                     note: item.note || ''
                 });
                 setShowItemModal(true);
@@ -658,7 +622,6 @@
                         ruby: itemFormData.ruby.trim(),
                         categoryId: itemFormData.categoryId,
                         tab: itemFormData.tab,
-                        quantity: itemFormData.quantity.trim(),
                         note: itemFormData.note.trim()
                     } : i);
                 } else {
@@ -668,7 +631,6 @@
                         ruby: itemFormData.ruby.trim(),
                         categoryId: itemFormData.categoryId,
                         tab: itemFormData.tab,
-                        quantity: itemFormData.quantity.trim() || '1個',
                         note: itemFormData.note.trim(),
                         completed: false
                     };
@@ -688,7 +650,6 @@
                 });
             };
 
-            // カテゴリの追加・編集・削除
             const openAddCategoryModal = () => {
                 setEditingCategory(null);
                 setCatFormData({ name: '', ruby: '', icon: 'fa-bag-shopping', colorIndex: 0 });
@@ -754,7 +715,6 @@
                 });
             };
 
-            // プリセット適用（上書き適用）
             const applyPreset = (presetId) => {
                 const preset = presets.find(p => p.id === presetId);
                 if (!preset) return;
@@ -768,7 +728,6 @@
                             ruby: it.ruby || '',
                             categoryId: it.categoryId || categories[0]?.id,
                             tab: 'daily',
-                            quantity: it.quantity || '1個',
                             note: it.note || '',
                             completed: false
                         }));
@@ -795,7 +754,6 @@
                         title: i.title,
                         ruby: i.ruby,
                         categoryId: i.categoryId,
-                        quantity: i.quantity,
                         note: i.note
                     }))
                 };
@@ -816,7 +774,6 @@
                 });
             };
 
-            // 生徒名簿の管理
             const openAddStudentModal = () => {
                 setEditingStudent(null);
                 setStudentFormData({ number: roster.length + 1, name: '', ruby: '' });
@@ -863,10 +820,10 @@
                 });
             };
 
-            // 先生モードの切り替え
             const handleTeacherToggle = () => {
                 if (isTeacherMode) {
                     setIsTeacherMode(false);
+                    setActiveView('list');
                 } else {
                     setPasscodeInput('');
                     setPasscodeError('');
@@ -884,7 +841,6 @@
                 }
             };
 
-            // ルビ描画用コンポーネント
             const renderRubyText = (text, ruby) => {
                 if (!ruby) return text;
                 return (
@@ -896,71 +852,41 @@
 
             const activeTabItems = items.filter(i => i.tab === activeTab);
 
-            // 全児童の提出数計算（児童用画面・マトリクス画面で共通利用）
             const submittedCount = roster.filter(st => {
                 const subKey = `${todayKey}_${st.id}`;
                 return submissions[subKey]?.isSubmitted;
             }).length;
 
             return (
-                <div className={`max-w-6xl mx-auto px-3 sm:px-6 py-4 ${isBigDisplay ? 'text-lg' : ''}`}>
+                <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4">
                     
                     {/* ヘッダー */}
-                    <header className="bg-white rounded-3xl shadow-sm border-4 border-amber-200 p-4 sm:p-6 mb-4">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            
-                            <div className="flex items-center space-x-3">
-                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-400 text-amber-900 flex items-center justify-center text-2xl sm:text-3xl font-black shadow-inner flex-shrink-0">
-                                    🎒
-                                </div>
-                                <div>
-                                    <div className="flex items-center space-x-2 mb-1 flex-wrap">
-                                        <span className="px-3 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs sm:text-sm font-black border border-amber-300">
-                                            クラスの<ruby>持ち物<rt>もちもの</rt></ruby>
-                                        </span>
-                                        {isFbReady && (
-                                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">
-                                                ☁️ クラウド自動保存・同期中
-                                            </span>
-                                        )}
-                                    </div>
-                                    <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-wide">
-                                        <ruby>今日<rt>きょう</rt></ruby>の <ruby>持<rt>も</rt></ruby>ち<ruby>物<rt>もの</rt></ruby>・<ruby>提<rt>てい</rt>出<rt>しゅつ</rt>物<rt>ぶつ</rt></ruby>
-                                    </h1>
-                                </div>
-                            </div>
+                    <header className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-4 mb-4">
+                        <div className="flex items-center justify-between">
+                            <h1 className="text-xl sm:text-2xl font-black text-slate-800">
+                                <ruby>今日<rt>きょう</rt></ruby>の <ruby>持<rt>も</rt></ruby>ち<ruby>物<rt>もの</rt></ruby>・<ruby>提<rt>てい</rt>出<rt>しゅつ</rt>物<rt>ぶつ</rt></ruby>
+                            </h1>
 
-                            {/* 操作ボタン */}
-                            <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-                                <button
-                                    onClick={() => setActiveView(activeView === 'list' ? 'matrix' : 'list')}
-                                    className={`px-3.5 py-2 text-xs sm:text-sm font-black rounded-2xl border-2 flex items-center space-x-1.5 ${
-                                        activeView === 'matrix'
-                                            ? 'bg-indigo-600 text-white border-indigo-700 shadow'
-                                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
-                                    }`}
-                                >
-                                    <i className="fa-solid fa-table-cells"></i>
-                                    <span>{activeView === 'matrix' ? 'チェックリスト表示' : '👥 全員の確認表'}</span>
-                                </button>
-
-                                <button
-                                    onClick={() => setIsBigDisplay(!isBigDisplay)}
-                                    className={`px-3.5 py-2 text-xs sm:text-sm font-black rounded-2xl border-2 flex items-center space-x-1.5 ${
-                                        isBigDisplay 
-                                            ? 'bg-purple-600 text-white border-purple-700 shadow' 
-                                            : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
-                                    }`}
-                                >
-                                    <i className="fa-solid fa-expand"></i>
-                                    <span>{isBigDisplay ? '通常文字' : '拡大文字'}</span>
-                                </button>
+                            <div className="flex items-center space-x-2">
+                                {isTeacherMode && (
+                                    <button
+                                        onClick={() => setActiveView(activeView === 'list' ? 'matrix' : 'list')}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-xl border flex items-center space-x-1 ${
+                                            activeView === 'matrix'
+                                                ? 'bg-indigo-600 text-white border-indigo-700'
+                                                : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                        }`}
+                                    >
+                                        <i className="fa-solid fa-table-cells"></i>
+                                        <span>{activeView === 'matrix' ? 'チェックリスト表示' : '全員の確認表'}</span>
+                                    </button>
+                                )}
 
                                 <button
                                     onClick={handleTeacherToggle}
-                                    className={`px-3.5 py-2 text-xs sm:text-sm font-black rounded-2xl border-2 flex items-center space-x-1.5 ${
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-xl border flex items-center space-x-1 ${
                                         isTeacherMode
-                                            ? 'bg-rose-500 text-white border-rose-600 shadow'
+                                            ? 'bg-rose-500 text-white border-rose-600'
                                             : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
                                     }`}
                                 >
@@ -969,102 +895,51 @@
                                 </button>
                             </div>
                         </div>
-
-                        {/* 児童名簿選択バー ＆ 提出ボタン */}
-                        {activeView === 'list' && (
-                            <div className="mt-4 pt-4 border-t-2 border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-amber-50 p-3.5 rounded-2xl border border-amber-200">
-                                <div className="flex items-center space-x-2 flex-wrap">
-                                    <span className="text-xs sm:text-sm font-black text-amber-900">
-                                        👤 じぶんの おなまえ：
-                                    </span>
-                                    <select
-                                        value={selectedStudentId}
-                                        onChange={e => setSelectedStudentId(e.target.value)}
-                                        className="px-3 py-1.5 bg-white border-2 border-amber-300 rounded-xl font-black text-xs sm:text-sm text-slate-800 shadow-sm focus:outline-none"
-                                    >
-                                        {roster.map(st => (
-                                            <option key={st.id} value={st.id}>
-                                                {st.number}番: {st.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex items-center space-x-2 self-end md:self-auto">
-                                    {currentSubData.isSubmitted ? (
-                                        <div className="flex items-center space-x-2">
-                                            <span className="px-3 py-1.5 bg-emerald-600 text-white font-black text-xs sm:text-sm rounded-xl shadow-sm flex items-center space-x-1">
-                                                <i className="fa-solid fa-circle-check"></i>
-                                                <span>ていしゅつずみ ({currentSubData.submittedAt})</span>
-                                            </span>
-                                            <button
-                                                onClick={handleSubmitChecklist}
-                                                className="px-3 py-1.5 bg-white text-slate-700 border border-slate-300 font-bold text-xs rounded-xl hover:bg-slate-50"
-                                            >
-                                                再ていしゅつ
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={handleSubmitChecklist}
-                                            className="px-4 py-2 bg-brandGreen hover:bg-emerald-700 text-white font-black text-xs sm:text-sm rounded-xl shadow border-2 border-emerald-800 flex items-center space-x-1.5"
-                                        >
-                                            <i className="fa-solid fa-paper-plane"></i>
-                                            <span>せんせいに ていしゅつする</span>
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </header>
 
-                    {/* タブ切り替え（「まいにちの持ち物」 vs 「学校に置いておくもの」） */}
+                    {/* タブ切り替え */}
                     {activeView === 'list' && (
                         <div className="flex space-x-2 mb-4">
                             <button
                                 onClick={() => setActiveTab('daily')}
-                                className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs sm:text-base border-3 flex items-center justify-center space-x-2 shadow-sm ${
+                                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-sm border-2 text-center ${
                                     activeTab === 'daily'
-                                        ? 'bg-amber-400 text-amber-950 border-amber-500'
+                                        ? 'bg-amber-400 text-amber-950 border-amber-500 shadow-sm'
                                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                 }`}
                             >
-                                <i className="fa-solid fa-calendar-day"></i>
-                                <span>🎒 まいにちの持ち物（毎日15時自動リセット）</span>
+                                まいにちの持ち物
                             </button>
                             <button
                                 onClick={() => setActiveTab('keep')}
-                                className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs sm:text-base border-3 flex items-center justify-center space-x-2 shadow-sm ${
+                                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-sm border-2 text-center ${
                                     activeTab === 'keep'
-                                        ? 'bg-sky-400 text-sky-950 border-sky-500'
+                                        ? 'bg-sky-400 text-sky-950 border-sky-500 shadow-sm'
                                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                 }`}
                             >
-                                <i className="fa-solid fa-box-archive"></i>
-                                <span>🏫 学校に置いておくもの（自動リセットなし）</span>
+                                学校に置いておくもの
                             </button>
                         </div>
                     )}
 
                     {/* 先生用 管理パネル */}
                     {isTeacherMode && (
-                        <div className="bg-rose-50 rounded-3xl border-4 border-rose-200 p-4 sm:p-5 mb-5 shadow-sm">
+                        <div className="bg-rose-50 rounded-2xl border-2 border-rose-200 p-4 mb-4 shadow-sm">
                             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                                <div className="flex items-center space-x-2 text-rose-900 font-black text-base sm:text-lg">
+                                <div className="flex items-center space-x-2 text-rose-900 font-bold text-sm">
                                     <i className="fa-solid fa-user-gear text-rose-600"></i>
-                                    <span>
-                                        <ruby>先生<rt>せんせい</rt></ruby><ruby>専用<rt>せんよう</rt></ruby> <ruby>追加<rt>ついか</rt></ruby>・<ruby>管理<rt>かんり</rt></ruby>パネル
-                                    </span>
+                                    <span>先生専用 管理パネル</span>
                                 </div>
-                                <span className="text-xs font-bold text-rose-700 bg-white px-3 py-1 rounded-full border border-rose-200 shadow-sm">
-                                    🔒 先生モード中：誤タップ防止のため児童チェック機能はロック中
+                                <span className="text-xs font-bold text-rose-700 bg-white px-2.5 py-0.5 rounded-full border border-rose-200">
+                                    先生モード中（児童チェック機能ロック中）
                                 </span>
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     onClick={() => openAddItemModal()}
-                                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow text-xs flex items-center space-x-1"
                                 >
                                     <i className="fa-solid fa-plus"></i>
                                     <span>新しい持ち物を追加</span>
@@ -1072,7 +947,7 @@
 
                                 <button
                                     onClick={openAddCategoryModal}
-                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow text-xs flex items-center space-x-1"
                                 >
                                     <i className="fa-solid fa-folder-plus"></i>
                                     <span>新しいカテゴリを追加</span>
@@ -1080,23 +955,23 @@
 
                                 <button
                                     onClick={() => setShowSavePresetModal(true)}
-                                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow text-xs flex items-center space-x-1"
                                 >
                                     <i className="fa-solid fa-bookmark"></i>
-                                    <span>現在のリストをプリセットに保存</span>
+                                    <span>現在のリストをプリセット保存</span>
                                 </button>
 
                                 <button
                                     onClick={() => setShowPresetManagerModal(true)}
-                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow text-xs flex items-center space-x-1"
                                 >
                                     <i className="fa-solid fa-folder-gear"></i>
-                                    <span>曜日別プリセット管理 ({presets.length})</span>
+                                    <span>プリセット管理 ({presets.length})</span>
                                 </button>
 
                                 <button
                                     onClick={openAddStudentModal}
-                                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow text-xs flex items-center space-x-1"
                                 >
                                     <i className="fa-solid fa-users-gear"></i>
                                     <span>児童名簿の編集</span>
@@ -1110,21 +985,20 @@
                                         setChangePassError('');
                                         setShowChangePassModal(true);
                                     }}
-                                    className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-black rounded-2xl shadow flex items-center space-x-2 text-xs sm:text-sm"
+                                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-xl shadow text-xs flex items-center space-x-1"
                                 >
                                     <i className="fa-solid fa-key"></i>
                                     <span>暗証番号の変更</span>
                                 </button>
                             </div>
 
-                            {/* プリセット一括上書きボタン */}
                             <div className="mt-3 pt-3 border-t border-rose-200 flex items-center flex-wrap gap-2">
-                                <span className="text-xs font-black text-rose-900">曜日別プリセット一括上書き適用:</span>
+                                <span className="text-xs font-bold text-rose-900">プリセット一括上書き適用:</span>
                                 {presets.map(p => (
                                     <button
                                         key={p.id}
                                         onClick={() => applyPreset(p.id)}
-                                        className="px-3 py-1 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 font-bold text-xs rounded-xl shadow-sm"
+                                        className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 font-bold text-xs rounded-lg shadow-sm"
                                     >
                                         ➔ {renderRubyText(p.name, p.ruby)}
                                     </button>
@@ -1135,104 +1009,63 @@
 
                     {/* ビュー1: チェックリスト表示 */}
                     {activeView === 'list' && (
-                        <div>
-                            {/* カテゴリフィルター */}
-                            <div className="flex items-center space-x-2 overflow-x-auto pb-3 mb-4 no-scrollbar">
-                                <button
-                                    onClick={() => setActiveCategoryFilter('ALL')}
-                                    className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm border-2 whitespace-nowrap shadow-sm ${
-                                        activeCategoryFilter === 'ALL'
-                                            ? 'bg-slate-800 text-white border-slate-800'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    🌟 すべて ({activeTabItems.length})
-                                </button>
-                                {categories.map(cat => {
-                                    const count = activeTabItems.filter(i => i.categoryId === cat.id).length;
-                                    return (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setActiveCategoryFilter(cat.id)}
-                                            className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm border-2 whitespace-nowrap shadow-sm flex items-center space-x-2 ${
-                                                activeCategoryFilter === cat.id
-                                                    ? 'bg-slate-800 text-white border-slate-800'
-                                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            <i className={`fa-solid ${cat.icon}`}></i>
-                                            <span>{renderRubyText(cat.name, cat.ruby)}</span>
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeCategoryFilter === cat.id ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                                                {count}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
+                        <div className="space-y-4">
                             {/* カテゴリ毎のカード */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {categories.map((cat) => {
-                                    if (activeCategoryFilter !== 'ALL' && activeCategoryFilter !== cat.id) return null;
-
                                     const catItems = activeTabItems.filter(i => i.categoryId === cat.id);
-                                    if (catItems.length === 0 && activeCategoryFilter === 'ALL' && !isTeacherMode) return null;
+                                    if (catItems.length === 0 && !isTeacherMode) return null;
 
                                     const doneCount = catItems.filter(i => i.completed).length;
 
                                     return (
-                                        <div key={cat.id} className={`rounded-3xl border-4 p-4 sm:p-5 shadow-sm bg-white ${cat.color.split(' ')[1]}`}>
+                                        <div key={cat.id} className={`rounded-2xl border-2 p-4 shadow-sm bg-white ${cat.color.split(' ')[1]}`}>
                                             
                                             {/* カテゴリヘッダー */}
-                                            <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-100">
-                                                <div className="flex items-center space-x-3">
-                                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg ${cat.badge}`}>
+                                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                                                <div className="flex items-center space-x-2.5">
+                                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm ${cat.badge}`}>
                                                         <i className={`fa-solid ${cat.icon}`}></i>
                                                     </div>
-                                                    <div>
-                                                        <h2 className="font-black text-base sm:text-lg text-slate-800">
-                                                            {renderRubyText(cat.name, cat.ruby)}
-                                                        </h2>
-                                                    </div>
+                                                    <h2 className="font-black text-base text-slate-800">
+                                                        {renderRubyText(cat.name, cat.ruby)}
+                                                    </h2>
                                                 </div>
 
                                                 <div className="flex items-center space-x-1">
-                                                    <span className="text-xs font-black bg-slate-100 px-2.5 py-1 rounded-full text-slate-700 mr-1">
+                                                    <span className="text-xs font-bold bg-slate-100 px-2 py-0.5 rounded-full text-slate-600 mr-1">
                                                         {doneCount} / {catItems.length}
                                                     </span>
 
-                                                    {/* 先生専用操作ボタン */}
                                                     {isTeacherMode && (
-                                                        <div className="flex items-center space-x-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                                                        <div className="flex items-center space-x-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
                                                             <button
                                                                 onClick={() => moveCategoryOrder(cat.id, 'up')}
-                                                                className="px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded"
-                                                                title="上へ"
+                                                                className="px-1 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded"
                                                             >
                                                                 ▲
                                                             </button>
                                                             <button
                                                                 onClick={() => moveCategoryOrder(cat.id, 'down')}
-                                                                className="px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded"
-                                                                title="下へ"
+                                                                className="px-1 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded"
                                                             >
                                                                 ▼
                                                             </button>
                                                             <button
                                                                 onClick={() => openAddItemModal(cat.id)}
-                                                                className="px-2 py-0.5 text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded"
+                                                                className="px-1.5 py-0.5 text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded"
                                                             >
-                                                                + 持ち物追加
+                                                                + 追加
                                                             </button>
                                                             <button
                                                                 onClick={() => openEditCategoryModal(cat)}
-                                                                className="px-1.5 py-0.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded"
+                                                                className="px-1 py-0.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded"
                                                             >
                                                                 <i className="fa-solid fa-pen"></i>
                                                             </button>
                                                             <button
                                                                 onClick={() => deleteCategory(cat.id)}
-                                                                className="px-1.5 py-0.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded"
+                                                                className="px-1 py-0.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded"
                                                             >
                                                                 <i className="fa-solid fa-trash-can"></i>
                                                             </button>
@@ -1243,26 +1076,26 @@
 
                                             {/* アイテムカード群 */}
                                             {catItems.length === 0 ? (
-                                                <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-2xl">
-                                                    <p className="text-xs text-slate-400 font-bold mb-2">
+                                                <div className="text-center py-4 border border-dashed border-slate-200 rounded-xl">
+                                                    <p className="text-xs text-slate-400 font-bold mb-1">
                                                         持ち物がありません
                                                     </p>
                                                     {isTeacherMode && (
                                                         <button
                                                             onClick={() => openAddItemModal(cat.id)}
-                                                            className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-xl"
+                                                            className="px-2.5 py-0.5 bg-emerald-600 text-white text-xs font-bold rounded-lg"
                                                         >
-                                                            + 持ち物を追加
+                                                            + 追加
                                                         </button>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     {catItems.map((item) => (
                                                         <div
                                                             key={item.id}
                                                             onClick={() => toggleItemCheck(item.id)}
-                                                            className={`p-3.5 sm:p-4 rounded-2xl border-2 flex items-center justify-between ${
+                                                            className={`p-3 rounded-xl border-2 flex items-center justify-between ${
                                                                 isTeacherMode ? 'cursor-default' : 'cursor-pointer hover:border-amber-400'
                                                             } ${
                                                                 item.completed
@@ -1271,8 +1104,7 @@
                                                             }`}
                                                         >
                                                             <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                                                {/* チェックボックス */}
-                                                                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border-2 flex items-center justify-center text-lg flex-shrink-0 ${
+                                                                <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center text-sm flex-shrink-0 ${
                                                                     item.completed
                                                                         ? 'bg-brandGreen border-brandGreen text-white'
                                                                         : 'border-slate-300 bg-slate-50 text-transparent'
@@ -1280,7 +1112,6 @@
                                                                     <i className="fa-solid fa-check"></i>
                                                                 </div>
 
-                                                                {/* タイトル＆注記 */}
                                                                 <div className="flex-1 min-w-0">
                                                                     <div className="flex items-center space-x-2 flex-wrap">
                                                                         <span className={`font-black text-sm sm:text-base ${
@@ -1288,48 +1119,40 @@
                                                                         }`}>
                                                                             {renderRubyText(item.title, item.ruby)}
                                                                         </span>
-                                                                        {item.quantity && (
-                                                                            <span className={`px-2 py-0.5 text-xs font-extrabold rounded-lg ${
-                                                                                item.completed ? 'bg-slate-100 text-slate-400' : 'bg-amber-100 text-amber-900'
-                                                                            }`}>
-                                                                                {item.quantity}
-                                                                            </span>
-                                                                        )}
                                                                     </div>
                                                                     {item.note && (
-                                                                        <p className={`text-xs font-bold mt-1 whitespace-pre-wrap ${
+                                                                        <p className={`text-xs font-bold mt-0.5 whitespace-pre-wrap ${
                                                                             item.completed ? 'text-slate-300' : 'text-slate-500'
                                                                         }`}>
-                                                                            💡 {item.note}
+                                                                            {item.note}
                                                                         </p>
                                                                     )}
                                                                 </div>
                                                             </div>
 
-                                                            {/* 先生専用ボタン */}
                                                             {isTeacherMode && (
                                                                 <div className="flex items-center space-x-1 pl-2 border-l border-slate-200 ml-2" onClick={e => e.stopPropagation()}>
                                                                     <button
                                                                         onClick={() => moveItemOrder(item.id, 'up')}
-                                                                        className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded text-xs font-bold"
+                                                                        className="p-1 text-slate-500 hover:text-amber-600 rounded text-xs font-bold"
                                                                     >
                                                                         ▲
                                                                     </button>
                                                                     <button
                                                                         onClick={() => moveItemOrder(item.id, 'down')}
-                                                                        className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded text-xs font-bold"
+                                                                        className="p-1 text-slate-500 hover:text-amber-600 rounded text-xs font-bold"
                                                                     >
                                                                         ▼
                                                                     </button>
                                                                     <button
                                                                         onClick={() => openEditItemModal(item)}
-                                                                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded text-xs font-bold"
+                                                                        className="p-1 text-slate-500 hover:text-indigo-600 rounded text-xs font-bold"
                                                                     >
                                                                         <i className="fa-solid fa-pen"></i>
                                                                     </button>
                                                                     <button
                                                                         onClick={() => deleteItem(item.id)}
-                                                                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded text-xs font-bold"
+                                                                        className="p-1 text-slate-500 hover:text-rose-600 rounded text-xs font-bold"
                                                                     >
                                                                         <i className="fa-solid fa-trash-can"></i>
                                                                     </button>
@@ -1343,180 +1166,187 @@
                                     );
                                 })}
                             </div>
-                        </div>
-                    )}
 
-                    {/* ビュー2: 全員の提出確認画面（児童用サマリー ⇄ 先生用詳細マトリクス） */}
-                    {activeView === 'matrix' && (
-                        <div className="bg-white rounded-3xl border-4 border-indigo-200 p-4 sm:p-6 shadow-sm">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b-2 border-slate-100">
-                                <div>
-                                    <h2 className="text-lg sm:text-xl font-black text-indigo-900 flex items-center space-x-2">
-                                        <i className="fa-solid fa-table-list text-indigo-600"></i>
-                                        <span>
-                                            {isTeacherMode ? '【先生モード】全員の詳細持ち物確認表' : 'クラス全員のていしゅつじょうきょう'}
+                            {/* 一番下の提出エリア（お名前選択 ＋ 提出ボタン） */}
+                            {!isTeacherMode && (
+                                <div className="mt-6 bg-white rounded-2xl border-2 border-amber-300 p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                        <span className="text-sm font-bold text-slate-700 whitespace-nowrap">
+                                            おなまえ：
                                         </span>
-                                    </h2>
-                                    <p className="text-xs text-slate-500 font-bold mt-0.5">
-                                        {isTeacherMode 
-                                            ? '児童の持ち物チェック詳細一覧（タップで先生による代理チェック・提出更新が可能です）'
-                                            : `ていしゅつ済み: ${submittedCount}名 / 全体: ${roster.length}名 (${Math.round((submittedCount / (roster.length || 1)) * 100)}%)`}
-                                    </p>
-                                </div>
-                                {isTeacherMode && (
-                                    <button
-                                        onClick={openAddStudentModal}
-                                        className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow self-start sm:self-auto"
-                                    >
-                                        + 児童を名簿に追加
-                                    </button>
-                                )}
-                            </div>
+                                        <select
+                                            value={selectedStudentId}
+                                            onChange={e => setSelectedStudentId(e.target.value)}
+                                            className="w-full sm:w-auto px-3 py-2 bg-amber-50 border-2 border-amber-300 rounded-xl font-bold text-sm text-slate-800 focus:outline-none"
+                                        >
+                                            {roster.map(st => (
+                                                <option key={st.id} value={st.id}>
+                                                    {st.number}番: {st.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                            {/* 児童用概要表示（プライバシー保護：持ち物内訳非表示） */}
-                            {!isTeacherMode ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                    {roster.map(st => {
-                                        const subKey = `${todayKey}_${st.id}`;
-                                        const subData = submissions[subKey];
-                                        const isSubmitted = subData?.isSubmitted;
-                                        return (
-                                            <div key={st.id} className={`p-3 rounded-2xl border-2 text-center ${
-                                                isSubmitted ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'
-                                            }`}>
-                                                <div className="text-xs text-slate-500 font-bold">{st.number}番</div>
-                                                <div className="font-black text-slate-800 text-sm my-1">{renderRubyText(st.name, st.ruby)}</div>
-                                                {isSubmitted ? (
-                                                    <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-full text-[10px] font-black inline-block">
-                                                        ✅ ていしゅつ済み
-                                                    </span>
-                                                ) : (
-                                                    <span className="px-2 py-0.5 bg-slate-200 text-slate-500 rounded-full text-[10px] font-bold inline-block">
-                                                        未ていしゅつ
-                                                    </span>
-                                                )}
+                                    <div className="w-full sm:w-auto flex justify-end">
+                                        {currentSubData.isSubmitted ? (
+                                            <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                                <span className="flex-1 sm:flex-none text-center px-4 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl shadow-sm flex items-center justify-center space-x-1">
+                                                    <i className="fa-solid fa-circle-check"></i>
+                                                    <span>ていしゅつずみ ({currentSubData.submittedAt})</span>
+                                                </span>
+                                                <button
+                                                    onClick={handleSubmitChecklist}
+                                                    className="px-3 py-2.5 bg-white text-slate-700 border border-slate-300 font-bold text-xs rounded-xl hover:bg-slate-50"
+                                                >
+                                                    再ていしゅつ
+                                                </button>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                /* 先生モード専用 詳細マトリクス表示 */
-                                <div className="overflow-x-auto border-2 border-slate-200 rounded-2xl">
-                                    <table className="w-full text-left border-collapse min-w-[700px]">
-                                        <thead>
-                                            <tr className="bg-indigo-50 border-b-2 border-indigo-200 text-indigo-900 text-xs font-black">
-                                                <th className="p-3 w-14 text-center border-r border-indigo-200">番号</th>
-                                                <th className="p-3 w-36 border-r border-indigo-200">お名前</th>
-                                                <th className="p-3 w-28 text-center border-r border-indigo-200">提出状況</th>
-                                                {items.map(item => (
-                                                    <th key={item.id} className="p-3 text-center border-r border-indigo-200 min-w-[90px]">
-                                                        <div className="font-black text-xs text-slate-800">{item.title}</div>
-                                                        <div className="text-[10px] text-slate-500 font-normal">{item.quantity}</div>
-                                                    </th>
-                                                ))}
-                                                <th className="p-3 w-20 text-center">操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-200 text-sm font-bold">
-                                            {roster.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={items.length + 4} className="p-8 text-center text-slate-400 font-bold text-xs">
-                                                        児童名簿が登録されていません。
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                roster.map(st => {
-                                                    const subKey = `${todayKey}_${st.id}`;
-                                                    const subData = submissions[subKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
-                                                    const checkedSet = new Set(subData.checkedIds || []);
-
-                                                    return (
-                                                        <tr key={st.id} className="hover:bg-slate-50">
-                                                            <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-600">
-                                                                {st.number}
-                                                            </td>
-                                                            <td className="p-3 border-r border-slate-200">
-                                                                {renderRubyText(st.name, st.ruby)}
-                                                            </td>
-                                                            <td 
-                                                                onClick={() => toggleMatrixSubmission(st.id)}
-                                                                className="p-3 text-center border-r border-slate-200 cursor-pointer hover:bg-amber-50"
-                                                            >
-                                                                {subData.isSubmitted ? (
-                                                                    <span className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-xs font-black inline-block">
-                                                                        提出済み<br/><span className="text-[10px] font-normal">{subData.submittedAt}</span>
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold inline-block">
-                                                                        未提出
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            {items.map(item => {
-                                                                const isChecked = checkedSet.has(item.id);
-                                                                return (
-                                                                    <td
-                                                                        key={item.id}
-                                                                        onClick={() => toggleMatrixCell(st.id, item.id)}
-                                                                        className="p-3 text-center border-r border-slate-200 cursor-pointer hover:bg-amber-50"
-                                                                    >
-                                                                        <span className={`inline-block w-7 h-7 rounded-lg text-sm font-black leading-7 ${
-                                                                            isChecked
-                                                                                ? 'bg-emerald-500 text-white'
-                                                                                : 'bg-slate-100 text-slate-300'
-                                                                        }`}>
-                                                                            {isChecked ? '✓' : '－'}
-                                                                        </span>
-                                                                    </td>
-                                                                );
-                                                            })}
-                                                            <td className="p-3 text-center space-x-1">
-                                                                <button
-                                                                    onClick={() => openEditStudentModal(st)}
-                                                                    className="text-xs text-indigo-600 hover:bg-indigo-50 p-1 rounded font-bold"
-                                                                >
-                                                                    編集
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => deleteStudent(st.id)}
-                                                                    className="text-xs text-rose-600 hover:bg-rose-50 p-1 rounded font-bold"
-                                                                >
-                                                                    削除
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            )}
-                                        </tbody>
-                                    </table>
+                                        ) : (
+                                            <button
+                                                onClick={handleSubmitChecklist}
+                                                className="w-full sm:w-auto px-6 py-3 bg-brandGreen hover:bg-emerald-700 text-white font-bold text-base rounded-xl shadow border-2 border-emerald-800 flex items-center justify-center space-x-2"
+                                            >
+                                                <i className="fa-solid fa-paper-plane"></i>
+                                                <span>せんせいに ていしゅつする</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
                     )}
 
+                    {/* ビュー2: 先生専用 マトリクス提出確認画面 */}
+                    {activeView === 'matrix' && isTeacherMode && (
+                        <div className="bg-white rounded-2xl border-2 border-indigo-200 p-4 sm:p-5 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+                                <div>
+                                    <h2 className="text-lg font-bold text-indigo-900 flex items-center space-x-2">
+                                        <i className="fa-solid fa-table-list text-indigo-600"></i>
+                                        <span>【先生モード】全員の詳細持ち物確認表</span>
+                                    </h2>
+                                    <p className="text-xs text-slate-500 font-bold mt-0.5">
+                                        提出状況: {submittedCount}名 / 全体: {roster.length}名 ({Math.round((submittedCount / (roster.length || 1)) * 100)}%)
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={openAddStudentModal}
+                                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow self-start sm:self-auto"
+                                >
+                                    + 児童を名簿に追加
+                                </button>
+                            </div>
 
-                    {/* -------------------- モーダル群 -------------------- */}
+                            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                <table className="w-full text-left border-collapse min-w-[650px]">
+                                    <thead>
+                                        <tr className="bg-indigo-50 border-b border-indigo-200 text-indigo-900 text-xs font-bold">
+                                            <th className="p-2.5 w-12 text-center border-r border-indigo-200">番号</th>
+                                            <th className="p-2.5 w-32 border-r border-indigo-200">お名前</th>
+                                            <th className="p-2.5 w-24 text-center border-r border-indigo-200">提出状況</th>
+                                            {items.map(item => (
+                                                <th key={item.id} className="p-2.5 text-center border-r border-indigo-200 min-w-[80px]">
+                                                    <div className="font-bold text-xs text-slate-800">{item.title}</div>
+                                                </th>
+                                            ))}
+                                            <th className="p-2.5 w-16 text-center">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200 text-xs font-bold">
+                                        {roster.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={items.length + 4} className="p-6 text-center text-slate-400 font-bold">
+                                                    児童名簿が登録されていません。
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            roster.map(st => {
+                                                const subKey = `${todayKey}_${st.id}`;
+                                                const subData = submissions[subKey] || { checkedIds: [], isSubmitted: false, submittedAt: '' };
+                                                const checkedSet = new Set(subData.checkedIds || []);
 
-                    {/* 1. 先生モード パスコード入力モーダル */}
+                                                return (
+                                                    <tr key={st.id} className="hover:bg-slate-50">
+                                                        <td className="p-2.5 text-center border-r border-slate-200 font-bold text-slate-600">
+                                                            {st.number}
+                                                        </td>
+                                                        <td className="p-2.5 border-r border-slate-200">
+                                                            {renderRubyText(st.name, st.ruby)}
+                                                        </td>
+                                                        <td 
+                                                            onClick={() => toggleMatrixSubmission(st.id)}
+                                                            className="p-2.5 text-center border-r border-slate-200 cursor-pointer hover:bg-amber-50"
+                                                        >
+                                                            {subData.isSubmitted ? (
+                                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[11px] font-bold inline-block">
+                                                                    提出済み<br/><span className="text-[9px] font-normal">{subData.submittedAt}</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[11px] font-bold inline-block">
+                                                                    未提出
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        {items.map(item => {
+                                                            const isChecked = checkedSet.has(item.id);
+                                                            return (
+                                                                <td
+                                                                    key={item.id}
+                                                                    onClick={() => toggleMatrixCell(st.id, item.id)}
+                                                                    className="p-2.5 text-center border-r border-slate-200 cursor-pointer hover:bg-amber-50"
+                                                                >
+                                                                    <span className={`inline-block w-6 h-6 rounded text-xs font-bold leading-6 ${
+                                                                        isChecked
+                                                                            ? 'bg-emerald-500 text-white'
+                                                                            : 'bg-slate-100 text-slate-300'
+                                                                    }`}>
+                                                                        {isChecked ? '✓' : '－'}
+                                                                    </span>
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td className="p-2.5 text-center space-x-1">
+                                                            <button
+                                                                onClick={() => openEditStudentModal(st)}
+                                                                className="text-xs text-indigo-600 hover:bg-indigo-50 p-1 rounded font-bold"
+                                                            >
+                                                                編集
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteStudent(st.id)}
+                                                                className="text-xs text-rose-600 hover:bg-rose-50 p-1 rounded font-bold"
+                                                            >
+                                                                削除
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* モーダル群 */}
+
+                    {/* 1. パスコード入力モーダル */}
                     {showPasscodeModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
-                            <div className="bg-white rounded-3xl p-6 border-4 border-rose-300 w-full max-w-sm text-center shadow-xl">
-                                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
-                                    <i className="fa-solid fa-lock"></i>
-                                </div>
-                                <h3 className="font-black text-slate-800 text-lg mb-1">先生専用モード</h3>
+                            <div className="bg-white rounded-2xl p-5 border-2 border-rose-300 w-full max-w-sm text-center shadow-xl">
+                                <h3 className="font-bold text-slate-800 text-base mb-1">先生専用モード</h3>
                                 <p className="text-xs text-slate-500 mb-4 font-bold">
-                                    暗証番号を入力してください<br/>（初期設定: <span className="font-mono bg-slate-100 px-1 rounded text-rose-600">1234</span>）
+                                    暗証番号を入力してください（初期設定: <span className="font-mono bg-slate-100 px-1 rounded text-rose-600">1234</span>）
                                 </p>
-                                <form onSubmit={verifyPasscode} className="space-y-4">
+                                <form onSubmit={verifyPasscode} className="space-y-3">
                                     <input
                                         type="password"
                                         maxLength="6"
                                         placeholder="••••"
                                         value={passcodeInput}
                                         onChange={e => setPasscodeInput(e.target.value)}
-                                        className="w-full text-center text-2xl font-mono tracking-widest py-3 border-2 border-slate-300 rounded-2xl focus:outline-none focus:border-rose-500 bg-slate-50"
+                                        className="w-full text-center text-xl font-mono tracking-widest py-2 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-rose-500 bg-slate-50"
                                         autoFocus
                                     />
                                     {passcodeError && (
@@ -1526,13 +1356,13 @@
                                         <button
                                             type="button"
                                             onClick={() => setShowPasscodeModal(false)}
-                                            className="flex-1 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-2xl text-xs"
+                                            className="flex-1 py-2 font-bold text-slate-600 bg-slate-100 rounded-xl text-xs"
                                         >
                                             キャンセル
                                         </button>
                                         <button
                                             type="submit"
-                                            className="flex-1 py-2.5 font-bold text-white bg-rose-600 rounded-2xl text-xs shadow"
+                                            className="flex-1 py-2 font-bold text-white bg-rose-600 rounded-xl text-xs shadow"
                                         >
                                             解除
                                         </button>
@@ -1545,11 +1375,8 @@
                     {/* 2. 暗証番号変更モーダル */}
                     {showChangePassModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
-                            <div className="bg-white rounded-3xl p-6 border-4 border-slate-600 w-full max-w-sm shadow-xl">
-                                <h3 className="font-black text-slate-800 text-lg mb-3 flex items-center space-x-2">
-                                    <i className="fa-solid fa-key text-slate-700"></i>
-                                    <span>暗証番号の変更</span>
-                                </h3>
+                            <div className="bg-white rounded-2xl p-5 border-2 border-slate-600 w-full max-w-sm shadow-xl">
+                                <h3 className="font-bold text-slate-800 text-base mb-3">暗証番号の変更</h3>
                                 <form onSubmit={handleChangePasscodeSubmit} className="space-y-3">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-600 mb-1">現在の暗証番号</label>
@@ -1558,7 +1385,7 @@
                                             required
                                             value={oldPassInput}
                                             onChange={e => setOldPassInput(e.target.value)}
-                                            className="w-full px-3 py-2 text-sm border-2 border-slate-300 rounded-xl font-mono"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-300 rounded-lg font-mono"
                                         />
                                     </div>
                                     <div>
@@ -1568,7 +1395,7 @@
                                             required
                                             value={newPassInput}
                                             onChange={e => setNewPassInput(e.target.value)}
-                                            className="w-full px-3 py-2 text-sm border-2 border-slate-300 rounded-xl font-mono"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-300 rounded-lg font-mono"
                                         />
                                     </div>
                                     <div>
@@ -1578,7 +1405,7 @@
                                             required
                                             value={confirmPassInput}
                                             onChange={e => setConfirmPassInput(e.target.value)}
-                                            className="w-full px-3 py-2 text-sm border-2 border-slate-300 rounded-xl font-mono"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-300 rounded-lg font-mono"
                                         />
                                     </div>
 
@@ -1586,7 +1413,7 @@
                                         <p className="text-xs font-bold text-rose-500">{changePassError}</p>
                                     )}
 
-                                    <div className="flex space-x-2 pt-3">
+                                    <div className="flex space-x-2 pt-2">
                                         <button
                                             type="button"
                                             onClick={() => setShowChangePassModal(false)}
@@ -1598,7 +1425,7 @@
                                             type="submit"
                                             className="flex-1 py-2 font-bold text-white bg-slate-800 rounded-xl text-xs shadow"
                                         >
-                                            変更を保存
+                                            保存
                                         </button>
                                     </div>
                                 </form>
@@ -1609,19 +1436,17 @@
                     {/* 3. 持ち物 アイテム追加・編集モーダル */}
                     {showItemModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
-                            <div className="bg-white rounded-3xl border-4 border-amber-300 w-full max-w-md overflow-hidden shadow-xl">
-                                <div className="px-6 py-4 bg-amber-100 border-b-2 border-amber-200 flex items-center justify-between">
-                                    <h3 className="font-black text-amber-900 text-base">
+                            <div className="bg-white rounded-2xl border-2 border-amber-300 w-full max-w-md overflow-hidden shadow-xl">
+                                <div className="px-5 py-3 bg-amber-100 border-b border-amber-200 flex items-center justify-between">
+                                    <h3 className="font-bold text-amber-900 text-sm">
                                         {editingItem ? '持ち物の修正' : '新しい持ち物の追加'}
                                     </h3>
-                                    <button onClick={() => setShowItemModal(false)} className="text-amber-800 font-black">
-                                        ✕
-                                    </button>
+                                    <button onClick={() => setShowItemModal(false)} className="text-amber-800 font-bold">✕</button>
                                 </div>
-                                <form onSubmit={handleItemFormSubmit} className="p-6 space-y-4">
+                                <form onSubmit={handleItemFormSubmit} className="p-5 space-y-3">
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">
-                                            持ち物の名前（漢字表記） <span className="text-rose-500">*</span>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                                            持ち物の名前 <span className="text-rose-500">*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -1629,28 +1454,26 @@
                                             placeholder="例: 国語の教科書"
                                             value={itemFormData.title}
                                             onChange={e => setItemFormData({ ...itemFormData, title: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">
-                                            ふりがな（児童用ルビ）
-                                        </label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">ふりがな</label>
                                         <input
                                             type="text"
                                             placeholder="例: こくごのきょうかしょ"
                                             value={itemFormData.ruby}
                                             onChange={e => setItemFormData({ ...itemFormData, ruby: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label className="block text-xs font-black text-slate-700 mb-1">カテゴリ</label>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1">カテゴリ</label>
                                             <select
                                                 value={itemFormData.categoryId}
                                                 onChange={e => setItemFormData({ ...itemFormData, categoryId: e.target.value })}
-                                                className="w-full px-3 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
                                             >
                                                 {categories.map(c => (
                                                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -1658,11 +1481,11 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-black text-slate-700 mb-1">タブ分類</label>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1">タブ分類</label>
                                             <select
                                                 value={itemFormData.tab}
                                                 onChange={e => setItemFormData({ ...itemFormData, tab: e.target.value })}
-                                                className="w-full px-3 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
                                             >
                                                 <option value="daily">まいにちの持ち物</option>
                                                 <option value="keep">学校に置いておくもの</option>
@@ -1670,25 +1493,13 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">数量</label>
-                                        <input
-                                            type="text"
-                                            placeholder="例: 1個, 1冊"
-                                            value={itemFormData.quantity}
-                                            onChange={e => setItemFormData({ ...itemFormData, quantity: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">
-                                            注意事項メモ（改行可能）
-                                        </label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">メモ</label>
                                         <textarea
-                                            rows="3"
-                                            placeholder="例: 赤白帽子もわすれずに&#10;充電しておくこと"
+                                            rows="2"
+                                            placeholder="例: 充電しておくこと"
                                             value={itemFormData.note}
                                             onChange={e => setItemFormData({ ...itemFormData, note: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
 
@@ -1702,9 +1513,9 @@
                                         </button>
                                         <button
                                             type="submit"
-                                            className="px-5 py-2 font-bold text-white bg-amber-500 rounded-xl text-xs shadow"
+                                            className="px-4 py-2 font-bold text-white bg-amber-500 rounded-xl text-xs shadow"
                                         >
-                                            {editingItem ? '保存する' : '追加する'}
+                                            {editingItem ? '保存' : '追加'}
                                         </button>
                                     </div>
                                 </form>
@@ -1715,18 +1526,16 @@
                     {/* 4. カテゴリ追加・編集モーダル */}
                     {showCategoryModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
-                            <div className="bg-white rounded-3xl border-4 border-purple-300 w-full max-w-md overflow-hidden shadow-xl">
-                                <div className="px-6 py-4 bg-purple-100 border-b-2 border-purple-200 flex items-center justify-between">
-                                    <h3 className="font-black text-purple-900 text-base">
+                            <div className="bg-white rounded-2xl border-2 border-purple-300 w-full max-w-md overflow-hidden shadow-xl">
+                                <div className="px-5 py-3 bg-purple-100 border-b border-purple-200 flex items-center justify-between">
+                                    <h3 className="font-bold text-purple-900 text-sm">
                                         {editingCategory ? 'カテゴリの修正' : '新しいカテゴリの追加'}
                                     </h3>
-                                    <button onClick={() => setShowCategoryModal(false)} className="text-purple-900 font-black">
-                                        ✕
-                                    </button>
+                                    <button onClick={() => setShowCategoryModal(false)} className="text-purple-900 font-bold">✕</button>
                                 </div>
-                                <form onSubmit={handleCategoryFormSubmit} className="p-6 space-y-4">
+                                <form onSubmit={handleCategoryFormSubmit} className="p-5 space-y-3">
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">
                                             カテゴリ名 <span className="text-rose-500">*</span>
                                         </label>
                                         <input
@@ -1735,29 +1544,29 @@
                                             placeholder="例: 理科・社会"
                                             value={catFormData.name}
                                             onChange={e => setCatFormData({ ...catFormData, name: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">ふりがな</label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">ふりがな</label>
                                         <input
                                             type="text"
                                             placeholder="例: りか・しゃかい"
                                             value={catFormData.ruby}
                                             onChange={e => setCatFormData({ ...catFormData, ruby: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm bg-slate-50 border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">アイコン</label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">アイコン</label>
                                         <div className="grid grid-cols-5 gap-2">
                                             {ICON_OPTIONS.map(icon => (
                                                 <button
                                                     key={icon}
                                                     type="button"
                                                     onClick={() => setCatFormData({ ...catFormData, icon })}
-                                                    className={`h-10 rounded-xl border-2 text-base flex items-center justify-center ${
+                                                    className={`h-9 rounded-xl border-2 text-sm flex items-center justify-center ${
                                                         catFormData.icon === icon
                                                             ? 'bg-purple-600 border-purple-600 text-white'
                                                             : 'bg-slate-50 border-slate-200 text-slate-700'
@@ -1770,16 +1579,16 @@
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">カラーテーマ</label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">カラーテーマ</label>
                                         <div className="grid grid-cols-3 gap-2">
                                             {COLOR_THEMES.map((theme, idx) => (
                                                 <button
                                                     key={idx}
                                                     type="button"
                                                     onClick={() => setCatFormData({ ...catFormData, colorIndex: idx })}
-                                                    className={`p-2 rounded-xl border-2 text-xs font-bold text-center ${
+                                                    className={`p-1.5 rounded-lg border-2 text-xs font-bold text-center ${
                                                         catFormData.colorIndex === idx
-                                                            ? 'border-purple-600 ring-2 ring-purple-300'
+                                                            ? 'border-purple-600 ring-2 ring-purple-200'
                                                             : 'border-slate-200'
                                                     } ${theme.color.split(' ')[0]}`}
                                                 >
@@ -1799,9 +1608,9 @@
                                         </button>
                                         <button
                                             type="submit"
-                                            className="px-5 py-2 font-bold text-white bg-purple-600 rounded-xl text-xs shadow"
+                                            className="px-4 py-2 font-bold text-white bg-purple-600 rounded-xl text-xs shadow"
                                         >
-                                            {editingCategory ? '保存する' : '追加する'}
+                                            {editingCategory ? '保存' : '追加'}
                                         </button>
                                     </div>
                                 </form>
@@ -1812,35 +1621,32 @@
                     {/* 5. プリセット保存モーダル */}
                     {showSavePresetModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
-                            <div className="bg-white rounded-3xl p-6 border-4 border-amber-300 w-full max-w-md shadow-xl">
-                                <h3 className="font-black text-amber-900 text-lg mb-2">
-                                    現在の「まいにちの持ち物」をプリセット保存
+                            <div className="bg-white rounded-2xl p-5 border-2 border-amber-300 w-full max-w-md shadow-xl">
+                                <h3 className="font-bold text-amber-900 text-sm mb-2">
+                                    現在の持ち物をプリセット保存
                                 </h3>
-                                <p className="text-xs text-slate-500 font-bold mb-4">
-                                    現在登録されている持ち物（{items.filter(i => i.tab === 'daily').length}件）をテンプレートとして保存します。
-                                </p>
                                 <form onSubmit={handleSaveCurrentAsPreset} className="space-y-3">
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">
                                             プリセット名 <span className="text-rose-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             required
-                                            placeholder="例: 水曜日セット（習字道具あり）"
+                                            placeholder="例: 水曜日セット"
                                             value={presetNameInput}
                                             onChange={e => setPresetNameInput(e.target.value)}
-                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">ふりがな</label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">ふりがな</label>
                                         <input
                                             type="text"
                                             placeholder="例: すいようびセット"
                                             value={presetRubyInput}
                                             onChange={e => setPresetRubyInput(e.target.value)}
-                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
                                     <div className="pt-2 flex justify-end space-x-2">
@@ -1853,9 +1659,9 @@
                                         </button>
                                         <button
                                             type="submit"
-                                            className="px-5 py-2 font-bold text-white bg-amber-500 rounded-xl text-xs shadow"
+                                            className="px-4 py-2 font-bold text-white bg-amber-500 rounded-xl text-xs shadow"
                                         >
-                                            保存する
+                                            保存
                                         </button>
                                     </div>
                                 </form>
@@ -1866,29 +1672,25 @@
                     {/* 6. プリセット管理モーダル */}
                     {showPresetManagerModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
-                            <div className="bg-white rounded-3xl border-4 border-indigo-400 w-full max-w-lg overflow-hidden shadow-xl flex flex-col max-h-[85vh]">
-                                <div className="px-6 py-4 bg-indigo-100 border-b-2 border-indigo-200 flex items-center justify-between">
-                                    <h3 className="font-black text-indigo-900 text-base">
-                                        曜日別・行事用 プリセットの管理
-                                    </h3>
-                                    <button onClick={() => setShowPresetManagerModal(false)} className="text-indigo-900 font-black">
-                                        ✕
-                                    </button>
+                            <div className="bg-white rounded-2xl border-2 border-indigo-400 w-full max-w-lg overflow-hidden shadow-xl flex flex-col max-h-[85vh]">
+                                <div className="px-5 py-3 bg-indigo-100 border-b border-indigo-200 flex items-center justify-between">
+                                    <h3 className="font-bold text-indigo-900 text-sm">プリセットの管理</h3>
+                                    <button onClick={() => setShowPresetManagerModal(false)} className="text-indigo-900 font-bold">✕</button>
                                 </div>
-                                <div className="p-6 overflow-y-auto space-y-3 flex-1">
+                                <div className="p-5 overflow-y-auto space-y-3 flex-1">
                                     {presets.length === 0 ? (
-                                        <p className="text-xs text-slate-400 font-bold text-center py-6">
+                                        <p className="text-xs text-slate-400 font-bold text-center py-4">
                                             保存されたプリセットはありません
                                         </p>
                                     ) : (
                                         presets.map(p => (
-                                            <div key={p.id} className="p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl flex items-center justify-between">
+                                            <div key={p.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
                                                 <div>
-                                                    <h4 className="font-black text-slate-800 text-sm">
+                                                    <h4 className="font-bold text-slate-800 text-xs">
                                                         {renderRubyText(p.name, p.ruby)}
                                                     </h4>
-                                                    <p className="text-xs text-slate-500 font-bold mt-1">
-                                                        アイテム: {p.items.length}件 ({p.items.map(i => i.title).slice(0, 3).join(', ')}{p.items.length > 3 ? '...' : ''})
+                                                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                                                        件数: {p.items.length}件
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
@@ -1897,13 +1699,13 @@
                                                             applyPreset(p.id);
                                                             setShowPresetManagerModal(false);
                                                         }}
-                                                        className="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow"
+                                                        className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg shadow"
                                                     >
-                                                        一括上書き適用
+                                                        上書き適用
                                                     </button>
                                                     <button
                                                         onClick={() => deletePreset(p.id)}
-                                                        className="px-3 py-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 font-bold text-xs rounded-xl"
+                                                        className="px-2.5 py-1 bg-rose-100 text-rose-700 hover:bg-rose-200 font-bold text-xs rounded-lg"
                                                     >
                                                         削除
                                                     </button>
@@ -1912,7 +1714,7 @@
                                         ))
                                     )}
                                 </div>
-                                <div className="p-4 bg-slate-100 border-t border-slate-200 flex justify-between items-center">
+                                <div className="p-3 bg-slate-100 border-t border-slate-200 flex justify-between items-center">
                                     <button
                                         onClick={() => {
                                             setShowPresetManagerModal(false);
@@ -1920,11 +1722,11 @@
                                         }}
                                         className="text-xs font-bold text-indigo-700 underline"
                                     >
-                                        + 今の「まいにちの持ち物」をプリセット追加
+                                        + プリセット追加
                                     </button>
                                     <button
                                         onClick={() => setShowPresetManagerModal(false)}
-                                        className="px-5 py-2 bg-slate-800 text-white font-bold rounded-xl text-xs"
+                                        className="px-4 py-1.5 bg-slate-800 text-white font-bold rounded-xl text-xs"
                                     >
                                         閉じる
                                     </button>
@@ -1936,50 +1738,48 @@
                     {/* 7. 児童名簿モーダル */}
                     {showRosterModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
-                            <div className="bg-white rounded-3xl border-4 border-teal-300 w-full max-w-sm overflow-hidden shadow-xl">
-                                <div className="px-6 py-4 bg-teal-100 border-b-2 border-teal-200 flex items-center justify-between">
-                                    <h3 className="font-black text-teal-900 text-base">
+                            <div className="bg-white rounded-2xl border-2 border-teal-300 w-full max-w-sm overflow-hidden shadow-xl">
+                                <div className="px-5 py-3 bg-teal-100 border-b border-teal-200 flex items-center justify-between">
+                                    <h3 className="font-bold text-teal-900 text-sm">
                                         {editingStudent ? '児童情報の修正' : '児童の追加'}
                                     </h3>
-                                    <button onClick={() => setShowRosterModal(false)} className="text-teal-900 font-black">
-                                        ✕
-                                    </button>
+                                    <button onClick={() => setShowRosterModal(false)} className="text-teal-900 font-bold">✕</button>
                                 </div>
-                                <form onSubmit={handleStudentFormSubmit} className="p-6 space-y-3">
+                                <form onSubmit={handleStudentFormSubmit} className="p-5 space-y-3">
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">出席番号</label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">出席番号</label>
                                         <input
                                             type="number"
                                             required
                                             min="1"
                                             value={studentFormData.number}
                                             onChange={e => setStudentFormData({ ...studentFormData, number: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">児童の氏名 <span className="text-rose-500">*</span></label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">児童の氏名 <span className="text-rose-500">*</span></label>
                                         <input
                                             type="text"
                                             required
                                             placeholder="例: 山田 たろう"
                                             value={studentFormData.name}
                                             onChange={e => setStudentFormData({ ...studentFormData, name: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-slate-700 mb-1">ふりがな</label>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">ふりがな</label>
                                         <input
                                             type="text"
                                             placeholder="例: やまだ たろう"
                                             value={studentFormData.ruby}
                                             onChange={e => setStudentFormData({ ...studentFormData, ruby: e.target.value })}
-                                            className="w-full px-3.5 py-2 text-sm border-2 border-slate-200 rounded-xl font-bold"
+                                            className="w-full px-3 py-1.5 text-sm border-2 border-slate-200 rounded-xl font-bold"
                                         />
                                     </div>
 
-                                    <div className="pt-3 flex justify-end space-x-2">
+                                    <div className="pt-2 flex justify-end space-x-2">
                                         <button
                                             type="button"
                                             onClick={() => setShowRosterModal(false)}
@@ -1989,7 +1789,7 @@
                                         </button>
                                         <button
                                             type="submit"
-                                            className="px-5 py-2 font-bold text-white bg-teal-600 rounded-xl text-xs shadow"
+                                            className="px-4 py-2 font-bold text-white bg-teal-600 rounded-xl text-xs shadow"
                                         >
                                             {editingStudent ? '保存' : '追加'}
                                         </button>
@@ -2002,11 +1802,11 @@
                     {/* 8. カスタム通知・確認ダイアログ */}
                     {dialogConfig && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
-                            <div className="bg-white rounded-3xl p-6 border-4 border-slate-800 w-full max-w-sm text-center shadow-2xl">
-                                <h3 className="font-black text-slate-800 text-base mb-2">
+                            <div className="bg-white rounded-2xl p-5 border-2 border-slate-800 w-full max-w-sm text-center shadow-2xl">
+                                <h3 className="font-bold text-slate-800 text-sm mb-2">
                                     {dialogConfig.title}
                                 </h3>
-                                <p className="text-xs font-bold text-slate-600 mb-6 whitespace-pre-wrap">
+                                <p className="text-xs font-bold text-slate-600 mb-4 whitespace-pre-wrap">
                                     {dialogConfig.message}
                                 </p>
                                 <div className="flex justify-center space-x-2">
@@ -2014,7 +1814,7 @@
                                         <>
                                             <button
                                                 onClick={() => setDialogConfig(null)}
-                                                className="px-5 py-2 font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs"
+                                                className="px-4 py-1.5 font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs"
                                             >
                                                 いいえ
                                             </button>
@@ -2023,7 +1823,7 @@
                                                     if (dialogConfig.onConfirm) dialogConfig.onConfirm();
                                                     setDialogConfig(null);
                                                 }}
-                                                className="px-5 py-2 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl text-xs shadow"
+                                                className="px-4 py-1.5 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl text-xs shadow"
                                             >
                                                 はい
                                             </button>
@@ -2031,7 +1831,7 @@
                                     ) : (
                                         <button
                                             onClick={() => setDialogConfig(null)}
-                                            className="px-6 py-2 font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl text-xs shadow"
+                                            className="px-5 py-1.5 font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl text-xs shadow"
                                         >
                                             OK
                                         </button>
